@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inventory</title>
+
+  <style>
+    /* ====================
+       THEME
+       ==================== */
+    :root {
+      --bg: #0f1220;
+      --panel: #181c2f;
+      --panel-2: #1f2440;
+      --text: #e6e8f0;
+      --muted: #9aa0c3;
+      --accent: #7aa2ff;
+      --danger: #ff6b6b;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 32px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(180deg, #0f1220, #0b0e1a);
+      color: var(--text);
+    }
+
+    h1 { margin: 0 0 24px; font-size: 2.2rem; }
+    h2 { margin: 32px 0 12px; font-size: 1.4rem; }
+
+    /* ====================
+       LAYOUT
+       ==================== */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.3);
+    }
+
+    /* ====================
+       FORMS
+       ==================== */
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-size: .9rem;
+      color: var(--muted);
+    }
+
+    input, select, textarea, button {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid #2b3160;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: .95rem;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    textarea { resize: vertical; min-height: 60px; }
+
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      border: none;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    button:hover { filter: brightness(1.1); }
+
+    .checkbox {
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checkbox input { width: auto; }
+
+    /* ====================
+       AUTOCOMPLETE
+       ==================== */
+    .autocomplete {
+      position: relative;
+    }
+
+    .autocomplete-list {
+      position: absolute;
+      z-index: 10;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 4px;
+      background: var(--panel-2);
+      border: 1px solid #2b3160;
+      border-radius: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .autocomplete-list li {
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .autocomplete-list li:hover { background: #2a2f55; }
+
+    /* ====================
+       CHIPS
+       ==================== */
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .chip {
+      background: #2a2f55;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: .8rem;
+    }
+
+    .muted { color: var(--muted); font-size: .85rem; }
+  </style>
+</head>
+<body>
+
+<h1>📦 Inventory</h1>
+
+<section class="grid">
+  <div class="card">
+    <h2>Search Tags</h2>
+    <div class="autocomplete">
+      <input id="tag-search" placeholder="Type tag…" />
+      <ul class="autocomplete-list" hidden></ul>
+    </div>
+    <div id="selected-tags" class="chips"></div>
+    <p class="muted">Search, click to select, or press Enter to create.</p>
+  </div>
+
+  <div class="card">
+    <h2>Search Location</h2>
+    <div class="autocomplete">
+      <input id="location-search" placeholder="Type location…" />
+      <ul class="autocomplete-list" hidden></ul>
+    </div>
+    <p class="muted">Partial and case-insensitive.</p>
+  </div>
+</section>
+
+<h2>Add Item Type</h2>
+<div class="card">
+  <label>Name<input id="itemtype-name" /></label>
+  <label>Instruction<textarea id="itemtype-instruction"></textarea></label>
+  <label>Voltage (V)<input type="number" step="any" id="battery-voltage" /></label>
+  <label>Current (A)<input type="number" step="any" id="battery-current" /></label>
+  <label>Capacity (mAh)<input type="number" step="any" id="battery-capacity" /></label>
+  <label>Charging type<input id="battery-charging-type" /></label>
+</select></label>
+  <button id="add-itemtype">Add Item Type</button>
+</div>
+
+<h2>Add Item</h2>
+<div class="card">
+  <div class="grid">
+    <label>Item type<select id="type_id"></select></label>
+    <label>Location<input id="location-display" disabled /></label>
+    <label>Last seen<input type="date" id="last_seen" /></label>
+    <label>Last charge<input type="date" id="last_charge" /></label>
+    <label class="checkbox"><input type="checkbox" id="cable" />Has dedicated cable</label>
+    <label>Acquired<input type="date" id="acquired" /></label>
+    <label>Bought place<input id="bought_place" /></label>
+    <label>Price (€)<input type="number" step="any" id="price" /></label>
+  </div>
+  <button id="add-item">Add Item</button>
+</div>
+
+<!---
+<h2>Add Battery</h2>
+<div class="card grid">
+  <button id="add-battery">Add Battery</button>
+</div> -->
+
+
+<h2>Add Location</h2>
+<div class="card">
+  <label>Name<input id="location-name" /></label>
+  <button id="add-location">Add Location</button>
+</div>
+
+<script>
+/* ====================
+   UTILITIES
+   ==================== */
+const $ = id => document.getElementById(id)
+
+async function jsonFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+function makeAutocomplete(input, list, endpoint, onSelect) {
+  input.addEventListener('input', async () => {
+    const q = input.value.trim()
+    list.innerHTML = ''
+    list.hidden = true
+    if (!q) return
+
+    const results = await jsonFetch(`${endpoint}?q=${encodeURIComponent(q)}`)
+    if (!results.length) return
+
+    results.forEach(r => {
+      const li = document.createElement('li')
+      li.textContent = r.name
+      li.onclick = () => {
+        onSelect(r)
+        list.hidden = true
+      }
+      list.appendChild(li)
+    })
+
+    list.hidden = false
+  })
+}
+
+/* ====================
+   TAGS
+   ==================== */
+const selectedTags = new Map()
+const tagList = $('tag-search').nextElementSibling
+
+function renderTags() {
+  $('selected-tags').innerHTML = ''
+  selectedTags.forEach(t => {
+    const s = document.createElement('span')
+    s.className = 'chip'
+    s.textContent = t.name
+    $('selected-tags').appendChild(s)
+  })
+}
+
+makeAutocomplete($('tag-search'), tagList, '/api/tags/search', tag => {
+  selectedTags.set(tag.id, tag)
+  renderTags()
+})
+
+$('tag-search').addEventListener('keydown', async e => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    const tag = await jsonFetch('/api/tags', {
+      method: 'POST',
+      body: JSON.stringify({ name: e.target.value })
+    })
+    selectedTags.set(tag.id, tag)
+    renderTags()
+    e.target.value = ''
+  }
+})
+
+/* ====================
+   LOCATION
+   ==================== */
+let selectedLocation = null
+const locList = $('location-search').nextElementSibling
+
+makeAutocomplete($('location-search'), locList, '/api/locations/search', loc => {
+  selectedLocation = loc
+  $('location-search').value = loc.name
+  $('location-display').value = loc.name
+})
+
+/* ====================
+   META
+   ==================== */
+async function loadMeta() {
+  const meta = await jsonFetch('/api/meta')
+
+  meta.types.forEach(t => {
+    const o = document.createElement('option')
+    o.value = t.id
+    o.textContent = t.name
+    $('type_id').appendChild(o)
+  })
+
+  meta.batteries.forEach(b => {
+    const o = document.createElement('option')
+    o.value = b.id
+    o.textContent = b.label
+    $('battery_id').appendChild(o)
+  })
+}
+
+loadMeta()
+
+/* ====================
+   SUBMIT
+   ==================== */
+$('add-item').onclick = async () => {
+  await jsonFetch('/api/items', {
+    method: 'POST',
+    body: JSON.stringify({
+      type_id: +$('type_id').value,
+      location_id: selectedLocation?.id,
+      last_seen_date: $('last_seen').value || null,
+      last_charge_date: $('last_charge').value || null,
+      has_dedicated_cable: $('cable').checked,
+      acquired_date: $('acquired').value || null,
+      bought_place: $('bought_place').value || null,
+      price: $('price').value ? +$('price').value : null
+    })
+  })
+  alert('Item added')
+}
+
+$('add-itemtype').onclick = async () => {
+  await jsonFetch('/api/item-types', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: $('itemtype-name').value,
+      instruction: $('itemtype-instruction').value || null,
+      tag_ids: [...selectedTags.keys()]
+      voltage: +$('battery-voltage').value || null,
+      current: +$('battery-current').value || null,
+      capacity: +$('battery-capacity').value || null,
+      charging_type: $('battery-charging-type').value || null,
+    })
+  })
+  alert('Item type added')
+}
+
+$('add-location').onclick = async () => {
+  await jsonFetch('/api/locations', {
+    method: 'POST',
+    body: JSON.stringify({ name: $('location-name').value, parent_id: null })
+  })
+  alert('Location added')
+}
+</script>
+
+</body>
+</html>
