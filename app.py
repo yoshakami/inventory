@@ -82,6 +82,50 @@ def location_helper_func(loc: Location) -> str:
         parts.append(current.name)
         current = current.parent
     return " > ".join(reversed(parts))
+
+
+@app.route("/api/items/search")
+def search_items():
+    q = request.args.get("q", "").strip()
+
+    with SessionLocal() as s:
+        query = (
+            s.query(Item)
+            .join(Item.type)
+            .join(Item.location)
+        )
+
+        if q:
+            query = query.filter(ItemType.name.ilike(f"%{q}%"))
+
+        items = query.limit(50).all()
+
+        return jsonify([
+            {
+                "id": i.id,
+                "type": i.type.name,
+                "instruction": i.type.instruction,
+                "battery": (
+                    {
+                        "voltage": i.type.battery.voltage,
+                        "current": i.type.battery.current,
+                        "capacity": i.type.battery.capacity,
+                        "charging_type": i.type.battery.charging_type,
+                    } if i.type.battery else None
+                ),
+                "tags": [t.name for t in i.type.tags],
+                "location": location_helper_func(i.location),
+                "last_seen": i.last_seen_date,
+                "last_charge": i.last_charge_date,
+                "acquired": i.acquired_date,
+                "has_cable": i.has_dedicated_cable,
+                "bought_place": i.bought_place,
+                "price": i.price,
+            }
+            for i in items
+        ])
+
+
 """
 @app.route("/api/locations/search") # this ver doesn't care about parent
 def search_locations():
