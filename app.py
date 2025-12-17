@@ -56,7 +56,7 @@ def search_tags():
         ).scalars()
         return jsonify([{"id": t.id, "name": t.name} for t in tags])
 
-"""
+
 @app.route("/api/locations/search")
 def search_locations():
     q = request.args.get("q", "")
@@ -65,7 +65,7 @@ def search_locations():
             select(Location).where(Location.name.ilike(f"%{q}%"))
         ).scalars()
         return jsonify([{"id": l.id, "name": l.name} for l in locs])
-"""
+
 
 # --------------------
 # CREATE
