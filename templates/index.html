@@ -4,10 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Items</title>
-<link href="/static/style.css" rel="stylesheet" />
+  <link href="/static/style.css" rel="stylesheet" />
+  <link rel="icon" href="{{ url_for('static', filename='Hatsune-Miku.ico') }}">
 </head>
 <body>
-
+  <div id="notification" class="notification" hidden></div>
   <!-- Mobile header / pane switcher -->
   <header class="topbar">
     <h1>Items</h1>
@@ -16,103 +17,100 @@
       <button id="tab-right">Results</button>
     </div>
   </header>
-
   <main class="layout show-left" id="layout">
-
     <!-- LEFT PANE -->
     <section class="pane left">
       <div class="stack">
-
         <!-- Top search -->
         <div class="card stack">
           <h2>Search</h2>
-
           <!-- Location + parent (TOP) -->
           <div class="location-block">
             <div>
               <label>Location</label>
               <input class="location" placeholder="Location" />
+              <ul class="autocomplete-list" hidden></ul>
             </div>
             <div>
               <label>Tag</label>
-          <input class="tag" placeholder="Tag" />
+              <input class="tag" placeholder="Tag" />
+              <ul class="autocomplete-list" hidden></ul>
             </div>
           </div>
         </div>
-
         <!-- Add / edit form -->
         <div class="card stack">
           <h2>Add Item Group</h2>
-
           <div>
             <label>Name</label>
-            <input placeholder="Item name" />
+            <input id="name" class="itemGroup" placeholder="Required: Item Name" />
+            <ul class="autocomplete-list" hidden></ul>
           </div>
-
           <div>
             <label>Instructions</label>
-            <input placeholder="Optional instructions" />
+            <input id="instructions" placeholder="Optional" />
           </div>
-          <div>
+          <div class="stack">
             <label>Tags</label>
-            <input class="tag" placeholder="Optional instructions" />
+            <div id="tags-container" class="row" style="flex-wrap: wrap; gap: 6px; background: #151924; padding: 6px; border-radius: 8px; border: 1px solid #2a2f3a;">
+              <input id="tag-input" class="tag" placeholder="Type a tag and press Enter" style="flex: 1; min-width: 120px; border: none; background: transparent; color: #e6e6eb;" />
+              <ul class="autocomplete-list" hidden></ul>
+            </div>
           </div>
-
           <div>
             <label>Voltage</label>
-            <input placeholder="Item name" />
+            <input id="voltage" placeholder="Optional" />
           </div>
           <div>
             <label>Current</label>
-            <input placeholder="Item name" />
+            <input id="current" placeholder="Optional" />
           </div>
           <div>
             <label>Capacity</label>
-            <input placeholder="Item name" />
+            <input id="capacity" placeholder="Optional" />
           </div>
           <div>
             <label>Charging Type</label>
-            <input placeholder="Item name" />
+            <input id="chargingType" placeholder="Optional" />
           </div>
-
           <button id="addItemGroupButton">Save</button>
         </div>
         <!-- Add / edit form -->
         <div class="card stack">
           <h2>Add Item</h2>
-
           <div>
             <label>Item Group</label>
-            <input placeholder="Item Group" />
+            <input id="itemGroup" class="itemGroup" placeholder="Required: Item Name" />
+            <ul class="autocomplete-list" hidden></ul>
           </div>
           <div>
             <label>Last Seen Date</label>
-            <input placeholder="Optional Parent Name" />
+            <input id="lastSeenDate" placeholder="Optional" />
           </div>
           <div>
-            <label>Last Chargee Date</label>
-            <input placeholder="Item Group" />
+            <label>Last Charge Date</label>
+            <input id="lastChargeDate" placeholder="Optional" />
           </div>
           <div>
             <label>Acquired Date</label>
-            <input placeholder="Item Group" />
+            <input id="acquiredDate" placeholder="Optional" />
           </div>
           <div>
             <label>Has Dedicated Cable</label>
-            <input placeholder="Optional Parent Name" />
+            <input id="hasDedicatedCable" placeholder="leave blank for no" />
           </div>
           <div>
             <label>Price</label>
-            <input placeholder="Optional Parent Name" />
+            <input id="price" placeholder="Optional" />
           </div>
           <div>
             <label>Bought Place</label>
-            <input placeholder="Optional Parent Name" />
+            <input id="boughtPlace" placeholder="Optional" />
           </div>
-
           <div>
             <label>Location</label>
-            <input class="location" placeholder="Optional instructions" />
+            <input id="location" class="location" placeholder="Required" />
+            <ul class="autocomplete-list" hidden></ul>
           </div>
           <button id="addItemButton">Save</button>
         </div>
@@ -120,21 +118,21 @@
           <h2>Add Location</h2>
           <div>
             <label>Location</label>
-            <input class="location" placeholder="Location" />
+            <input id="addLocation" class="location" placeholder="Required" />
+            <ul class="autocomplete-list" hidden></ul>
           </div>
           <div>
             <label>Parent Place</label>
-            <input class="location" placeholder="Optional Parent Name" />
+            <input id="addParent" class="location" placeholder="Optional" />
+            <ul class="autocomplete-list" hidden></ul>
           </div>
           <button id="addLocationButton">Save</button>
         </div>
       </div>
     </section>
-
     <!-- RIGHT PANE -->
     <section class="pane right">
       <h2>Results</h2>
-
       <!-- This is just structure; plug your JS here -->
       <div class="results">
         <div class="result-card">Item / search result</div>
@@ -142,13 +140,7 @@
         <div class="result-card">Item / search result</div>
       </div>
     </section>
-
   </main>
-  <!--
-    JS NOTE (you said you'll do it):
-    - Toggle layout.classList.add('show-left'|'show-right') on mobile
-    - Wire autocomplete / results rendering yourself
-  -->
-<script src="/static/script.js"></script>
+  <script src="/static/script.js"></script>
 </body>
 </html>

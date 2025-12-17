@@ -73,7 +73,7 @@ class Location(Base):
     __tablename__ = "location"
     
     __table_args__ = (
-        UniqueConstraint("name", "parent_id", name="uq_location_name_parent"),
+        UniqueConstraint("name", name="uq_location_name"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]

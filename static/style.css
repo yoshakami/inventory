@@ -9,6 +9,9 @@
       color: #e6e6eb;
     }
 
+    div {
+      position: relative;
+    }
     input, button {
       font: inherit;
     }
@@ -33,7 +36,7 @@
       cursor: pointer;
     }
 
-    button.primary {
+    button {
       background: #3b5cff;
       border-color: #3b5cff;
     }
@@ -81,9 +84,9 @@
     /* --------------------
        Layout
     -------------------- */
-    .layout {
+    #layout {
       display: grid;
-      grid-template-columns: 420px 1fr;
+      grid-template-columns: 1fr 1fr; /* both have the same width*/
       min-height: 100vh;
     }
 
@@ -140,7 +143,7 @@
     @media (max-width: 1200px) {
       .topbar { display: flex; }
 
-      .layout {
+      #layout {
         grid-template-columns: 1fr;
       }
 
@@ -153,6 +156,72 @@
         .show-left  -> show left pane
         .show-right -> show right pane
       */
-      .layout.show-left .left { display: block; }
-      .layout.show-right .right { display: block; }
+      #layout.show-left .left { display: block; }
+      #layout.show-right .right { display: block; }
     }
+    .autocomplete-list li.active {
+  background: #2a2f55;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+
+  max-height: 220px;
+  overflow-y: auto;
+
+  background: #141826;
+  border: 1px solid #2a2f3a;
+  border-radius: 8px;
+  padding: 4px 0;
+  margin: 0;
+  list-style: none;
+
+  z-index: 50;
+}
+
+.autocomplete-list li {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.autocomplete-list li:hover {
+  background: #1b2030;
+}
+.notification {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+
+  padding: 12px 16px;
+  text-align: center;
+  font-weight: 600;
+  z-index: 9999;
+
+  transform: translateY(-100%);
+  transition: transform 0.25s ease;
+}
+
+/* visible */
+.notification.show {
+  transform: translateY(0);
+}
+
+/* types */
+.notification.success {
+  background: #1f8f4a;
+  color: #eafff3;
+}
+
+.notification.error {
+  background: #b83232;
+  color: #ffecec;
+}
+
+.notification.info {
+  background: #2c5fff;
+  color: #eef2ff;
+}
