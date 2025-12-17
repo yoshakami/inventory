@@ -56,7 +56,7 @@ def search_tags():
         ).scalars()
         return jsonify([{"id": t.id, "name": t.name} for t in tags])
 
-
+"""
 @app.route("/api/locations/search")
 def search_locations():
     q = request.args.get("q", "")
@@ -65,7 +65,7 @@ def search_locations():
             select(Location).where(Location.name.ilike(f"%{q}%"))
         ).scalars()
         return jsonify([{"id": l.id, "name": l.name} for l in locs])
-
+"""
 
 # --------------------
 # CREATE
@@ -100,36 +100,110 @@ def create_location():
         return {"id": loc.id, "name": loc.name}
 
 
-@app.route("/api/batteries", methods=["POST"])
-def create_battery():
-    data = request.json
-    with SessionLocal() as s:
-        b = Battery(
-            voltage=data["voltage"],
-            current=data["current"],
-            capacity=data["capacity"],
-            charging_type=data["charging_type"],
-        )
-        s.add(b)
-        s.commit()
-        return {"id": b.id}
-
-
 
 @app.route("/api/item-types", methods=["POST"])
 def create_item_type():
     data = request.json
+
+    required = ("name", "voltage", "current", "capacity", "charging_type")
+    for key in required:
+        if key not in data:
+            abort(400, f"Missing field: {key}")
+
     with SessionLocal() as s:
-        tags = s.query(Tag).filter(Tag.id.in_(data["tag_ids"])).all()
-        it = ItemType(
+        # Find or create battery
+        battery = (
+            s.query(Battery)
+            .filter_by(
+                voltage=data["voltage"],
+                current=data["current"],
+                capacity=data["capacity"],
+                charging_type=data["charging_type"],
+            )
+            .one_or_none()
+        )
+
+        if battery is None:
+            battery = Battery(
+                voltage=float(data["voltage"]),
+                current=float(data["current"]),
+                capacity=float(data["capacity"]),
+                charging_type=data["charging_type"],
+            )
+            s.add(battery)
+            s.flush()  # ensures battery.id exists
+
+        # Resolve tags safely
+        tag_ids = data.get("tag_ids", [])
+        tags: list[Tag] = []
+
+        if tag_ids:
+            tags = s.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+
+            if len(tags) != len(tag_ids):
+                abort(400, "One or more tag_ids are invalid")
+
+        # Create ItemType
+        item_type = ItemType(
             name=data["name"],
             instruction=data.get("instruction"),
-            battery_id=data.get("battery_id"),
+            battery=battery,
             tags=tags,
         )
-        s.add(it)
+
+        s.add(item_type)
         s.commit()
-        return {"id": it.id}
+
+        return {"id": item_type.id}, 201
+
+@app.route("/api/search/item-types")
+def search_item_types():
+    q = request.args.get("q", "").strip()
+
+    if not q:
+        return jsonify([])
+
+    with SessionLocal() as s:
+        results = (
+            s.query(ItemType)
+            .filter(ItemType.name.ilike(f"%{q}%"))
+            .order_by(ItemType.name)
+            .limit(10)
+            .all()
+        )
+
+        return jsonify([
+            {"id": it.id, "label": it.name}
+            for it in results
+        ])
+
+@app.route("/api/locations", methods=["POST"])
+def create_location():
+    data = request.json
+    name = data["name"].strip()
+    parent_id = data.get("parent_id")
+
+    with SessionLocal() as s:
+        existing = (
+            s.query(Location)
+            .filter(
+                Location.name.ilike(name),
+                Location.parent_id == parent_id
+            )
+            .one_or_none()
+        )
+
+        if existing:
+            return {"id": existing.id, "name": existing.name}
+
+        loc = Location(
+            name=name,
+            parent_id=parent_id,
+        )
+        s.add(loc)
+        s.commit()
+        return {"id": loc.id, "name": loc.name}
+
 
 
 @app.route("/api/items", methods=["POST"])

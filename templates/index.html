@@ -141,6 +141,29 @@
     }
 
     .muted { color: var(--muted); font-size: .85rem; }
+
+    .autocomplete {
+  position: absolute;
+  background: #111;
+  border: 1px solid #333;
+  width: fit-content;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+  min-width: 10%;
+
+}
+
+.autocomplete div {
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.autocomplete div:hover {
+  background: #333;
+}
+
   </style>
 </head>
 <body>
@@ -150,9 +173,9 @@
 <section class="grid">
   <div class="card">
     <h2>Search Tags</h2>
-    <div class="autocomplete">
-      <input id="tag-search" placeholder="Type tag…" />
-      <ul class="autocomplete-list" hidden></ul>
+    <div class="field">
+      <input id="tag-search" placeholder="Type tag…" autocomplete="off" />
+      <div class="autocomplete" id="tag-search-results"></div>
     </div>
     <div id="selected-tags" class="chips"></div>
     <p class="muted">Search, click to select, or press Enter to create.</p>
@@ -160,9 +183,10 @@
 
   <div class="card">
     <h2>Search Location</h2>
-    <div class="autocomplete">
-      <input id="location-search" placeholder="Type location…" />
-      <ul class="autocomplete-list" hidden></ul>
+    <div class="field">
+      <input id="search-location-input" placeholder="Type location…" autocomplete="off" />
+      <input type="hidden" id="search-location-id" />
+      <div class="autocomplete" id="search-location-results"></div>
     </div>
     <p class="muted">Partial and case-insensitive.</p>
   </div>
@@ -183,8 +207,19 @@
 <h2>Add Item</h2>
 <div class="card">
   <div class="grid">
-    <label>Item type<select id="type_id"></select></label>
-    <label>Location<input id="location-display" disabled /></label>
+    <label>
+  Item type
+  <input id="type-input" autocomplete="off" />
+  <input type="hidden" id="type_id" />
+  <div class="autocomplete" id="type-results"></div>
+</label>
+
+<label>
+  Location
+  <input id="location-input" autocomplete="off" />
+  <input type="hidden" id="location_id" />
+  <div class="autocomplete" id="location-results"></div>
+</label>
     <label>Last seen<input type="date" id="last_seen" /></label>
     <label>Last charge<input type="date" id="last_charge" /></label>
     <label class="checkbox"><input type="checkbox" id="cable" />Has dedicated cable</label>
@@ -204,9 +239,21 @@
 
 <h2>Add Location</h2>
 <div class="card">
-  <label>Name<input id="location-name" /></label>
+  <div class="field">
+    <label>Name</label>
+    <input id="location-name" />
+  </div>
+
+  <div class="field">
+    <label>Parent</label>
+    <input id="location-parent-input" autocomplete="off" />
+    <input type="hidden" id="location-parent-id" />
+    <div class="autocomplete" id="location-parent-results"></div>
+  </div>
+
   <button id="add-location">Add Location</button>
 </div>
+
 
 <script>
 /* ====================
@@ -305,13 +352,6 @@ async function loadMeta() {
     o.textContent = t.name
     $('type_id').appendChild(o)
   })
-
-  meta.batteries.forEach(b => {
-    const o = document.createElement('option')
-    o.value = b.id
-    o.textContent = b.label
-    $('battery_id').appendChild(o)
-  })
 }
 
 loadMeta()
@@ -320,6 +360,16 @@ loadMeta()
    SUBMIT
    ==================== */
 $('add-item').onclick = async () => {
+  if (!document.getElementById("type_id").value) {
+  alert("Please select a valid item type")
+  return
+}
+
+if (!document.getElementById("location_id").value) {
+  alert("Please select a valid location")
+  return
+}
+
   await jsonFetch('/api/items', {
     method: 'POST',
     body: JSON.stringify({
@@ -342,7 +392,7 @@ $('add-itemtype').onclick = async () => {
     body: JSON.stringify({
       name: $('itemtype-name').value,
       instruction: $('itemtype-instruction').value || null,
-      tag_ids: [...selectedTags.keys()]
+      tag_ids: [...selectedTags.keys()],
       voltage: +$('battery-voltage').value || null,
       current: +$('battery-current').value || null,
       capacity: +$('battery-capacity').value || null,
@@ -359,6 +409,85 @@ $('add-location').onclick = async () => {
   })
   alert('Location added')
 }
+
+async function setupAutocomplete({
+  inputId,
+  hiddenId = null,
+  resultsId,
+  endpoint,
+  onSelect = null
+}) {
+  const input = document.getElementById(inputId)
+  const hidden = hiddenId ? document.getElementById(hiddenId) : null
+  const results = document.getElementById(resultsId)
+
+  let lastQuery = ""
+
+  input.addEventListener("input", async () => {
+    const q = input.value.trim()
+    if (hidden) hidden.value = ""
+    results.innerHTML = ""
+    results.style.display = "none"
+
+    if (q.length < 2 || q === lastQuery) return
+    lastQuery = q
+
+    const res = await fetch(`${endpoint}?q=${encodeURIComponent(q)}`)
+    const items = await res.json()
+
+    if (!items.length) return
+
+    for (const item of items) {
+      const div = document.createElement("div")
+      div.textContent = item.label
+      div.onclick = () => {
+        input.value = item.label
+        if (hidden) hidden.value = item.id
+        results.innerHTML = ""
+        results.style.display = "none"
+        onSelect?.(item)
+      }
+      results.appendChild(div)
+    }
+
+    results.style.display = "block"
+  })
+
+  document.addEventListener("click", e => {
+    if (!results.contains(e.target) && e.target !== input) {
+      results.style.display = "none"
+    }
+  })
+}
+setupAutocomplete({
+  inputId: "search-location-input",
+  hiddenId: "search-location-id",
+  resultsId: "search-location-results",
+  endpoint: "/api/search/locations"
+})
+
+setupAutocomplete({
+  inputId: "location-parent-input",
+  hiddenId: "location-parent-id",
+  resultsId: "location-parent-results",
+  endpoint: "/api/search/locations"
+})
+
+
+setupAutocomplete({
+  inputId: "type-input",
+  hiddenId: "type_id",
+  resultsId: "type-results",
+  endpoint: "/api/search/item-types"
+})
+
+setupAutocomplete({
+  inputId: "location-input",
+  hiddenId: "location_id",
+  resultsId: "location-results",
+  endpoint: "/api/search/locations"
+})
+
 </script>
 
 </body>

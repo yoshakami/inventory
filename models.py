@@ -48,6 +48,10 @@ class Battery(Base):
 
 class ItemType(Base):
     __tablename__ = "item_type"
+    
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_item_type_name"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
@@ -65,7 +69,10 @@ class ItemType(Base):
 
 class Location(Base):
     __tablename__ = "location"
-
+    
+    __table_args__ = (
+        UniqueConstraint("name", "parent_id", name="uq_location_name_parent"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
 
