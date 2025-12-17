@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, abort
 from sqlalchemy import select
 from db import engine, SessionLocal
 from models import (
@@ -86,7 +86,7 @@ def create_tag():
         s.commit()
         return {"id": tag.id, "name": tag.name}
 
-
+"""
 @app.route("/api/locations", methods=["POST"])
 def create_location():
     data = request.json
@@ -99,6 +99,51 @@ def create_location():
         s.commit()
         return {"id": loc.id, "name": loc.name}
 
+"""
+
+@app.route("/api/locations", methods=["POST"])
+def create_location():
+    data = request.json or {}
+
+    name = (data.get("name") or "").strip()
+    parent_id = data.get("parent_id")
+
+    if not name:
+        abort(400, "Location name cannot be empty")
+
+    with SessionLocal() as s:
+        existing = (
+            s.query(Location)
+            .filter(
+                Location.name.ilike(name),
+                Location.parent_id == parent_id
+            )
+            .one_or_none()
+        )
+
+        if existing:
+            return {"id": existing.id, "name": existing.name}
+
+        loc = Location(
+            name=name,
+            parent_id=parent_id,
+        )
+        s.add(loc)
+        s.commit()
+
+        return {"id": loc.id, "name": loc.name}, 201
+
+
+
+
+@app.route("/api/items", methods=["POST"])
+def create_item():
+    data = request.json
+    with SessionLocal() as s:
+        item = Item(**data)
+        s.add(item)
+        s.commit()
+        return {"id": item.id}
 
 
 @app.route("/api/item-types", methods=["POST"])
@@ -177,43 +222,6 @@ def search_item_types():
             for it in results
         ])
 
-@app.route("/api/locations", methods=["POST"])
-def create_location():
-    data = request.json
-    name = data["name"].strip()
-    parent_id = data.get("parent_id")
-
-    with SessionLocal() as s:
-        existing = (
-            s.query(Location)
-            .filter(
-                Location.name.ilike(name),
-                Location.parent_id == parent_id
-            )
-            .one_or_none()
-        )
-
-        if existing:
-            return {"id": existing.id, "name": existing.name}
-
-        loc = Location(
-            name=name,
-            parent_id=parent_id,
-        )
-        s.add(loc)
-        s.commit()
-        return {"id": loc.id, "name": loc.name}
-
-
-
-@app.route("/api/items", methods=["POST"])
-def create_item():
-    data = request.json
-    with SessionLocal() as s:
-        item = Item(**data)
-        s.add(item)
-        s.commit()
-        return {"id": item.id}
 
 
 if __name__ == "__main__":

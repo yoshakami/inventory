@@ -184,9 +184,12 @@
   <div class="card">
     <h2>Search Location</h2>
     <div class="field">
-      <input id="search-location-input" placeholder="Type location…" autocomplete="off" />
-      <input type="hidden" id="search-location-id" />
-      <div class="autocomplete" id="search-location-results"></div>
+      <div class="autocomplete">
+  <input id="search-location-input" placeholder="Type location…" autocomplete="off">
+  <input type="hidden" id="search-location-id">
+  <div class="autocomplete-results" id="search-location-results"></div>
+</div>
+
     </div>
     <p class="muted">Partial and case-insensitive.</p>
   </div>
@@ -206,19 +209,21 @@
 
 <h2>Add Item</h2>
 <div class="card">
-  <div class="grid">
-    <label>
-  Item type
-  <input id="type-input" autocomplete="off" />
-  <input type="hidden" id="type_id" />
-  <div class="autocomplete" id="type-results"></div>
+  <div class="autocomplete">
+  <input id="type-input" autocomplete="off">
+  <input type="hidden" id="type_id">
+  <div class="autocomplete-results" id="type-results"></div>
+</div>
+
 </label>
 
 <label>
-  Location
-  <input id="location-input" autocomplete="off" />
-  <input type="hidden" id="location_id" />
-  <div class="autocomplete" id="location-results"></div>
+  <div class="autocomplete">
+  <input id="location-input" autocomplete="off">
+  <input type="hidden" id="location_id">
+  <div class="autocomplete-results" id="location-results"></div>
+</div>
+
 </label>
     <label>Last seen<input type="date" id="last_seen" /></label>
     <label>Last charge<input type="date" id="last_charge" /></label>
@@ -241,14 +246,21 @@
 <div class="card">
   <div class="field">
     <label>Name</label>
-    <input id="location-name" />
-  </div>
+    <div class="autocomplete">
+  <input id="location-input" autocomplete="off">
+  <input type="hidden" id="location_id">
+  <div class="autocomplete-results" id="location-results"></div>
+</div>
 
+  </div>
+  
   <div class="field">
-    <label>Parent</label>
-    <input id="location-parent-input" autocomplete="off" />
-    <input type="hidden" id="location-parent-id" />
-    <div class="autocomplete" id="location-parent-results"></div>
+    <div class="autocomplete">
+  <input id="location-parent-input" autocomplete="off">
+  <input type="hidden" id="location-parent-id">
+  <div class="autocomplete-results" id="location-parent-results"></div>
+</div>
+
   </div>
 
   <button id="add-location">Add Location</button>

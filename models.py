@@ -7,7 +7,9 @@ from sqlalchemy import (
     ForeignKey,
     Table,
     Column,
+    UniqueConstraint,
 )
+
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
