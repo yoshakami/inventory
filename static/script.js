@@ -24,7 +24,7 @@ function autoComplete(selector, API_URL) {
 
         li.addEventListener("mousedown", e => {
           e.preventDefault()
-          selectItem(i)
+          selectItem(i) // ✅ no await here
         })
 
         list.appendChild(li)
@@ -33,7 +33,7 @@ function autoComplete(selector, API_URL) {
       list.hidden = false
     }
 
-    function selectItem(index) {
+    async function selectItem(index) {
       const item = items[index]
       if (!item) return
 
@@ -41,6 +41,14 @@ function autoComplete(selector, API_URL) {
       input.dataset.id = item.id
       list.hidden = true
       list.innerHTML = ""
+
+      // Load results panel
+      const res = await fetch(
+        `/api/items/search-by-tag?q=${encodeURIComponent(item.label)}`
+      )
+      const data = await res.json()
+      console.log(data)
+      renderResults(data)
     }
 
     function highlight() {
@@ -52,20 +60,21 @@ function autoComplete(selector, API_URL) {
     input.addEventListener("input", async e => {
       const value = e.target.value.trim()
 
-      if (value.length < 1) {
+      if (!value) {
         list.hidden = true
         list.innerHTML = ""
         return
       }
 
-      const results = await fetch(
+      const res = await fetch(
         `${API_URL}?q=${encodeURIComponent(value)}`
-      ).then(r => r.json())
+      )
+      const results = await res.json()
 
       render(results)
     })
 
-    input.addEventListener("keydown", e => {
+    input.addEventListener("keydown", async e => {
       if (list.hidden || !items.length) return
 
       switch (e.key) {
@@ -84,7 +93,7 @@ function autoComplete(selector, API_URL) {
         case "Enter":
           if (activeIndex >= 0) {
             e.preventDefault()
-            selectItem(activeIndex)
+            await selectItem(activeIndex) // ✅ allowed here
           }
           break
 
@@ -102,9 +111,55 @@ function autoComplete(selector, API_URL) {
   })
 }
 
+
 autoComplete('.location', "/api/locations/search")
 autoComplete('.tag', "/api/tags/search")
 autoComplete('.itemGroup', "/api/item-types/search")
+
+function renderResults(items) {
+  const container = document.querySelector(".results")
+  container.innerHTML = ""
+
+  if (!items.length) {
+    container.innerHTML = "<p class='muted'>No results</p>"
+    return
+  }
+
+  for (const item of items) {
+    const card = document.createElement("div")
+    card.className = "result-card"
+
+    card.innerHTML = `
+      <h3>${item.type}</h3>
+
+      <p class="muted">${item.location}</p>
+
+      ${item.instruction ? `<p>${item.instruction}</p>` : ""}
+
+      ${item.battery ? `
+        <div class="muted">
+          🔋 ${item.battery.voltage}V ·
+          ${item.battery.current}A ·
+          ${item.battery.capacity}mAh ·
+          ${item.battery.charging_type}
+        </div>
+      ` : ""}
+
+      ${item.tags.length ? `
+        <div class="chips">
+          ${item.tags.map(t => `<span class="chip">${t}</span>`).join("")}
+        </div>
+      ` : ""}
+
+      <div class="muted">
+        ${item.has_cable ? "🔌 Cable included" : ""}
+        ${item.price ? `· €${item.price}` : ""}
+      </div>
+    `
+
+    container.appendChild(card)
+  }
+}
 
 
 const addLocationInput = document.querySelector("#addLocation")
