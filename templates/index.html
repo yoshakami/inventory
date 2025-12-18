@@ -1,146 +1,479 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Items</title>
-  <link href="/static/style.css" rel="stylesheet" />
-  <link rel="icon" href="{{ url_for('static', filename='Hatsune-Miku.ico') }}">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inventory</title>
+
+  <style>
+    /* ====================
+       THEME
+       ==================== */
+    :root {
+      --bg: #0f1220;
+      --panel: #181c2f;
+      --panel-2: #1f2440;
+      --text: #e6e8f0;
+      --muted: #9aa0c3;
+      --accent: #7aa2ff;
+      --danger: #ff6b6b;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 32px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(180deg, #0f1220, #0b0e1a);
+      color: var(--text);
+    }
+
+    h1 { margin: 0 0 24px; font-size: 2.2rem; }
+    h2 { margin: 32px 0 12px; font-size: 1.4rem; }
+
+    /* ====================
+       LAYOUT
+       ==================== */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.3);
+    }
+
+    /* ====================
+       FORMS
+       ==================== */
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-size: .9rem;
+      color: var(--muted);
+    }
+
+    input, select, textarea, button {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid #2b3160;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: .95rem;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    textarea { resize: vertical; min-height: 60px; }
+
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      border: none;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    button:hover { filter: brightness(1.1); }
+
+    .checkbox {
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checkbox input { width: auto; }
+
+    /* ====================
+       AUTOCOMPLETE
+       ==================== */
+    .autocomplete {
+      position: relative;
+    }
+
+    .autocomplete-list {
+      position: absolute;
+      z-index: 10;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 4px;
+      background: var(--panel-2);
+      border: 1px solid #2b3160;
+      border-radius: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .autocomplete-list li {
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .autocomplete-list li:hover { background: #2a2f55; }
+
+    /* ====================
+       CHIPS
+       ==================== */
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .chip {
+      background: #2a2f55;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: .8rem;
+    }
+
+    .muted { color: var(--muted); font-size: .85rem; }
+
+    .autocomplete {
+  position: absolute;
+  background: #111;
+  border: 1px solid #333;
+  width: fit-content;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+  min-width: 10%;
+
+}
+
+.autocomplete div {
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.autocomplete div:hover {
+  background: #333;
+}
+
+  </style>
 </head>
 <body>
-  <div id="notification" class="notification" hidden></div>
-  <!-- Mobile header / pane switcher -->
-  <header class="topbar">
-    <h1>Items</h1>
-    <div class="tabs">
-      <button id="tab-left">Edit / Add</button>
-      <button id="tab-right">Results</button>
+
+<h1>📦 Inventory</h1>
+
+<section class="grid">
+  <div class="card">
+    <h2>Search Tags</h2>
+    <div class="field">
+      <input id="tag-search" placeholder="Type tag…" autocomplete="off" />
+      <div class="autocomplete" id="tag-search-results"></div>
     </div>
-  </header>
-  <main class="layout show-left" id="layout">
-    <!-- LEFT PANE -->
-    <section class="pane left">
-      <div class="stack">
-        <!-- Top search -->
-        <div class="card stack">
-          <h2>Search</h2>
-          <!-- Location + parent (TOP) -->
-          <div class="location-block">
-            <div>
-              <label>Location</label>
-              <input class="location" placeholder="Location" />
-              <ul class="autocomplete-list" hidden></ul>
-            </div>
-            <div>
-              <label>Tag</label>
-              <input class="tag" placeholder="Tag" />
-              <ul class="autocomplete-list" hidden></ul>
-            </div>
-          </div>
-        </div>
-        <!-- Add / edit form -->
-        <div class="card stack">
-          <h2>Add Item Group</h2>
-          <div>
-            <label>Name</label>
-            <input id="name" class="itemGroup" placeholder="Required: Item Name" />
-            <ul class="autocomplete-list" hidden></ul>
-          </div>
-          <div>
-            <label>Instructions</label>
-            <input id="instructions" placeholder="Optional" />
-          </div>
-          <div class="stack">
-            <label>Tags</label>
-            <div id="tags-container" class="row" style="flex-wrap: wrap; gap: 6px; background: #151924; padding: 6px; border-radius: 8px; border: 1px solid #2a2f3a;">
-              <input id="tag-input" class="tag" placeholder="Type a tag and press Enter" style="flex: 1; min-width: 120px; border: none; background: transparent; color: #e6e6eb;" />
-              <ul class="autocomplete-list" hidden></ul>
-            </div>
-          </div>
-          <div>
-            <label>Voltage</label>
-            <input id="voltage" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Current</label>
-            <input id="current" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Capacity</label>
-            <input id="capacity" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Charging Type</label>
-            <input id="chargingType" placeholder="Optional" />
-          </div>
-          <button id="addItemGroupButton">Save</button>
-        </div>
-        <!-- Add / edit form -->
-        <div class="card stack">
-          <h2>Add Item</h2>
-          <div>
-            <label>Item Group</label>
-            <input id="itemGroup" class="itemGroup" placeholder="Required: Item Name" />
-            <ul class="autocomplete-list" hidden></ul>
-          </div>
-          <div>
-            <label>Last Seen Date</label>
-            <input id="lastSeenDate" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Last Charge Date</label>
-            <input id="lastChargeDate" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Acquired Date</label>
-            <input id="acquiredDate" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Has Dedicated Cable</label>
-            <input id="hasDedicatedCable" placeholder="leave blank for no" />
-          </div>
-          <div>
-            <label>Price</label>
-            <input id="price" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Bought Place</label>
-            <input id="boughtPlace" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Location</label>
-            <input id="location" class="location" placeholder="Required" />
-            <ul class="autocomplete-list" hidden></ul>
-          </div>
-          <button id="addItemButton">Save</button>
-        </div>
-        <div class="card stack">
-          <h2>Add Location</h2>
-          <div>
-            <label>Location</label>
-            <input id="addLocation" class="location" placeholder="Required" />
-            <ul class="autocomplete-list" hidden></ul>
-          </div>
-          <div>
-            <label>Parent Place</label>
-            <input id="addParent" class="location" placeholder="Optional" />
-            <ul class="autocomplete-list" hidden></ul>
-          </div>
-          <button id="addLocationButton">Save</button>
-        </div>
-      </div>
-    </section>
-    <!-- RIGHT PANE -->
-    <section class="pane right">
-      <h2>Results</h2>
-      <!-- This is just structure; plug your JS here -->
-      <div class="results">
-        <div class="result-card">Item / search result</div>
-        <div class="result-card">Item / search result</div>
-        <div class="result-card">Item / search result</div>
-      </div>
-    </section>
-  </main>
-  <script src="/static/script.js"></script>
+    <div id="selected-tags" class="chips"></div>
+    <p class="muted">Search, click to select, or press Enter to create.</p>
+  </div>
+
+  <div class="card">
+    <h2>Search Location</h2>
+    <div class="field">
+      <input id="search-location-input" placeholder="Type location…" autocomplete="off" />
+      <input type="hidden" id="search-location-id" />
+      <div class="autocomplete" id="search-location-results"></div>
+    </div>
+    <p class="muted">Partial and case-insensitive.</p>
+  </div>
+</section>
+
+<h2>Add Item Type</h2>
+<div class="card">
+  <label>Name<input id="itemtype-name" /></label>
+  <label>Instruction<textarea id="itemtype-instruction"></textarea></label>
+  <label>Voltage (V)<input type="number" step="any" id="battery-voltage" /></label>
+  <label>Current (A)<input type="number" step="any" id="battery-current" /></label>
+  <label>Capacity (mAh)<input type="number" step="any" id="battery-capacity" /></label>
+  <label>Charging type<input id="battery-charging-type" /></label>
+</select></label>
+  <button id="add-itemtype">Add Item Type</button>
+</div>
+
+<h2>Add Item</h2>
+<div class="card">
+  <div class="grid">
+    <label>
+  Item type
+  <input id="type-input" autocomplete="off" />
+  <input type="hidden" id="type_id" />
+  <div class="autocomplete" id="type-results"></div>
+</label>
+
+<label>
+  Location
+  <input id="location-input" autocomplete="off" />
+  <input type="hidden" id="location_id" />
+  <div class="autocomplete" id="location-results"></div>
+</label>
+    <label>Last seen<input type="date" id="last_seen" /></label>
+    <label>Last charge<input type="date" id="last_charge" /></label>
+    <label class="checkbox"><input type="checkbox" id="cable" />Has dedicated cable</label>
+    <label>Acquired<input type="date" id="acquired" /></label>
+    <label>Bought place<input id="bought_place" /></label>
+    <label>Price (€)<input type="number" step="any" id="price" /></label>
+  </div>
+  <button id="add-item">Add Item</button>
+</div>
+
+<!---
+<h2>Add Battery</h2>
+<div class="card grid">
+  <button id="add-battery">Add Battery</button>
+</div> -->
+
+
+<h2>Add Location</h2>
+<div class="card">
+  <div class="field">
+    <label>Name</label>
+    <input id="location-name" />
+  </div>
+
+  <div class="field">
+    <label>Parent</label>
+    <input id="location-parent-input" autocomplete="off" />
+    <input type="hidden" id="location-parent-id" />
+    <div class="autocomplete" id="location-parent-results"></div>
+  </div>
+
+  <button id="add-location">Add Location</button>
+</div>
+
+
+<script>
+/* ====================
+   UTILITIES
+   ==================== */
+const $ = id => document.getElementById(id)
+
+async function jsonFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+function makeAutocomplete(input, list, endpoint, onSelect) {
+  input.addEventListener('input', async () => {
+    const q = input.value.trim()
+    list.innerHTML = ''
+    list.hidden = true
+    if (!q) return
+
+    const results = await jsonFetch(`${endpoint}?q=${encodeURIComponent(q)}`)
+    if (!results.length) return
+
+    results.forEach(r => {
+      const li = document.createElement('li')
+      li.textContent = r.name
+      li.onclick = () => {
+        onSelect(r)
+        list.hidden = true
+      }
+      list.appendChild(li)
+    })
+
+    list.hidden = false
+  })
+}
+
+/* ====================
+   TAGS
+   ==================== */
+const selectedTags = new Map()
+const tagList = $('tag-search').nextElementSibling
+
+function renderTags() {
+  $('selected-tags').innerHTML = ''
+  selectedTags.forEach(t => {
+    const s = document.createElement('span')
+    s.className = 'chip'
+    s.textContent = t.name
+    $('selected-tags').appendChild(s)
+  })
+}
+
+makeAutocomplete($('tag-search'), tagList, '/api/tags/search', tag => {
+  selectedTags.set(tag.id, tag)
+  renderTags()
+})
+
+$('tag-search').addEventListener('keydown', async e => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    const tag = await jsonFetch('/api/tags', {
+      method: 'POST',
+      body: JSON.stringify({ name: e.target.value })
+    })
+    selectedTags.set(tag.id, tag)
+    renderTags()
+    e.target.value = ''
+  }
+})
+
+/* ====================
+   LOCATION
+   ==================== */
+let selectedLocation = null
+const locList = $('location-search').nextElementSibling
+
+makeAutocomplete($('location-search'), locList, '/api/locations/search', loc => {
+  selectedLocation = loc
+  $('location-search').value = loc.name
+  $('location-display').value = loc.name
+})
+
+/* ====================
+   META
+   ==================== */
+async function loadMeta() {
+  const meta = await jsonFetch('/api/meta')
+
+  meta.types.forEach(t => {
+    const o = document.createElement('option')
+    o.value = t.id
+    o.textContent = t.name
+    $('type_id').appendChild(o)
+  })
+}
+
+loadMeta()
+
+/* ====================
+   SUBMIT
+   ==================== */
+$('add-item').onclick = async () => {
+  if (!document.getElementById("type_id").value) {
+  alert("Please select a valid item type")
+  return
+}
+
+if (!document.getElementById("location_id").value) {
+  alert("Please select a valid location")
+  return
+}
+
+  await jsonFetch('/api/items', {
+    method: 'POST',
+    body: JSON.stringify({
+      type_id: +$('type_id').value,
+      location_id: selectedLocation?.id,
+      last_seen_date: $('last_seen').value || null,
+      last_charge_date: $('last_charge').value || null,
+      has_dedicated_cable: $('cable').checked,
+      acquired_date: $('acquired').value || null,
+      bought_place: $('bought_place').value || null,
+      price: $('price').value ? +$('price').value : null
+    })
+  })
+  alert('Item added')
+}
+
+$('add-itemtype').onclick = async () => {
+  await jsonFetch('/api/item-types', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: $('itemtype-name').value,
+      instruction: $('itemtype-instruction').value || null,
+      tag_ids: [...selectedTags.keys()],
+      voltage: +$('battery-voltage').value || null,
+      current: +$('battery-current').value || null,
+      capacity: +$('battery-capacity').value || null,
+      charging_type: $('battery-charging-type').value || null,
+    })
+  })
+  alert('Item type added')
+}
+
+$('add-location').onclick = async () => {
+  await jsonFetch('/api/locations', {
+    method: 'POST',
+    body: JSON.stringify({ name: $('location-name').value, parent_id: null })
+  })
+  alert('Location added')
+}
+
+async function setupAutocomplete({
+  inputId,
+  hiddenId,
+  resultsId,
+  endpoint
+}) {
+  const input = document.getElementById(inputId)
+  const hidden = document.getElementById(hiddenId)
+  const results = document.getElementById(resultsId)
+
+  let lastQuery = ""
+
+  input.addEventListener("input", async () => {
+    const q = input.value.trim()
+    hidden.value = ""
+    results.innerHTML = ""
+    results.style.display = "none"
+
+    if (q.length < 1) return
+    if (q === lastQuery) return
+    lastQuery = q
+
+    const res = await fetch(`${endpoint}?q=${encodeURIComponent(q)}`)
+    const items = await res.json()
+
+    if (!items.length) return
+
+    for (const item of items) {
+      const div = document.createElement("div")
+      div.textContent = item.label
+      div.addEventListener("click", () => {
+        input.value = item.label
+        hidden.value = item.id
+        results.innerHTML = ""
+        results.style.display = "none"
+      })
+      results.appendChild(div)
+    }
+
+    results.style.display = "block"
+  })
+
+  document.addEventListener("click", (e) => {
+    if (!results.contains(e.target) && e.target !== input) {
+      results.style.display = "none"
+    }
+  })
+}
+
+setupAutocomplete({
+  inputId: "type-input",
+  hiddenId: "type_id",
+  resultsId: "type-results",
+  endpoint: "/api/search/item-types"
+})
+
+setupAutocomplete({
+  inputId: "location-input",
+  hiddenId: "location_id",
+  resultsId: "location-results",
+  endpoint: "/api/search/locations"
+})
+
+</script>
+
 </body>
 </html>

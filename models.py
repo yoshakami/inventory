@@ -7,9 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     Table,
     Column,
-    UniqueConstraint,
 )
-
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -50,10 +48,6 @@ class Battery(Base):
 
 class ItemType(Base):
     __tablename__ = "item_type"
-    
-    __table_args__ = (
-        UniqueConstraint("name", name="uq_item_type_name"),
-    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
@@ -71,10 +65,7 @@ class ItemType(Base):
 
 class Location(Base):
     __tablename__ = "location"
-    
-    __table_args__ = (
-        UniqueConstraint("name", name="uq_location_name"),
-    )
+
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
 
