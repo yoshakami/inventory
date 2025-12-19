@@ -1,6 +1,43 @@
 console.log("hello!!!!!!!!!!!!!!!")
 
+let AUTOCOMPLETE_ENABLED =
+  localStorage.getItem("autocomplete") !== "false";
+
+const toggleBtn = document.getElementById("toggleAutocomplete");
+const searchSection = document.querySelector(".pane.left .search");
+function updateToggleUI() {
+  if (AUTOCOMPLETE_ENABLED) {
+    toggleBtn.textContent = "Search: ON"
+    searchSection.style.display = ""
+    toggleBtn.style.background = "green"
+    toggleBtn.style.borderColor = "green"
+  } else {
+    toggleBtn.textContent = "Search: OFF"
+    searchSection.style.display = "none"
+    toggleBtn.style.background = "red"
+    toggleBtn.style.borderColor = "red"
+    
+  }
+}
+
+toggleBtn.addEventListener("click", () => {
+  AUTOCOMPLETE_ENABLED = !AUTOCOMPLETE_ENABLED;
+  localStorage.setItem("autocomplete", AUTOCOMPLETE_ENABLED);
+  updateToggleUI();
+});
+
+updateToggleUI();
+
+const advBtn = document.getElementById("advancedSearchBtn");
+const advPanel = document.getElementById("advancedPanel");
+
+advBtn.addEventListener("click", () => {
+  advPanel.hidden = !advPanel.hidden;
+});
+
 async function handleAutocompleteSelect({ input, item }) {
+  if (!AUTOCOMPLETE_ENABLED) return;
+
   input.value = item.label
   input.dataset.id = item.id
 
@@ -45,6 +82,27 @@ async function handleAutocompleteSelect({ input, item }) {
     case "price":
       url = `/api/items/price?q=${encodeURIComponent(item.label)}`
       break
+
+    case "lastSeenDate":
+      url = `/api/items/last-seen?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "lastChargeDate":
+      url = `/api/items/last-charge?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "acquiredDate":
+      url = `/api/items/acquired?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "itemID":
+      url = `/api/items/by-id?q=${encodeURIComponent(item.id)}`
+      break
+
+    case "groupID":
+      url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
+      break
+
   }
 
   if (url) {
@@ -114,10 +172,11 @@ function autoComplete({ selector, api, onSelect }) {
     }
 
     input.addEventListener("input", async e => {
+      if (!AUTOCOMPLETE_ENABLED) return;
       const q = e.target.value.trim()
       if (!q) return close()
 
-      const res = await fetch(`${api}?q=${encodeURIComponent(q)}`)
+      const res = await fetch(`${api}?&autocomplete=true&q=${encodeURIComponent(q)}`)
       render(await res.json())
     })
 
@@ -155,19 +214,20 @@ function autoComplete({ selector, api, onSelect }) {
   })
 }
 
-
-autoComplete({ selector: ".location", api: "/api/location", onSelect: handleAutocompleteSelect })
-autoComplete({ selector: ".tag", api: "/api/tag", onSelect: handleAutocompleteSelect })
-autoComplete({ selector: ".itemGroup", api: "/api/item-group", onSelect: handleAutocompleteSelect })
-
-autoComplete({ selector: "#voltage", api: "/api/battery/voltage", onSelect: handleAutocompleteSelect })
-autoComplete({ selector: "#current", api: "/api/battery/current", onSelect: handleAutocompleteSelect })
-autoComplete({ selector: "#capacity", api: "/api/battery/capacity", onSelect: handleAutocompleteSelect })
-autoComplete({ selector: "#chargingType", api: "/api/battery/charging-type", onSelect: handleAutocompleteSelect })
-
+autoComplete({ selector: ".location", api: "/api/items/location", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: ".tag", api: "/api/items/tag", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: ".itemGroup", api: "/api/items/group", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#voltage", api: "/api/items/voltage", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#current", api: "/api/items/current", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#capacity", api: "/api/items/capacity", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#chargingType", api: "/api/items/charging-type", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#boughtPlace", api: "/api/items/bought-place", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#price", api: "/api/items/price", onSelect: handleAutocompleteSelect })
-
+autoComplete({ selector: "#lastSeenDate", api: "/api/items/last-seen", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#lastChargeDate", api: "/api/items/last-charge", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#acquiredDate", api: "/api/items/acquired", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#itemID", api: "/api/items/id", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#groupID", api: "/api/items/group-id", onSelect: handleAutocompleteSelect })
 
 function isoLabel(label, value) {
   return value ? `<div class="muted"><strong>${label}:</strong> ${value}</div>` : ""
@@ -330,15 +390,13 @@ addLocationButton.addEventListener("click", async () => {
   }
 
   const data = await resp.json()
-  if (resp.status == 200)
-  {
-  console.log("Location already exists:", data, resp)
-  notify("Location already exists", "info")
+  if (resp.status == 200) {
+    console.log("Location already exists:", data, resp)
+    notify("Location already exists", "info")
   }
-  if (resp.status == 201)
-  {
-  console.log("Location created:", data, resp)
-  notify("Location Created", "success")
+  if (resp.status == 201) {
+    console.log("Location created:", data, resp)
+    notify("Location Created", "success")
   }
 })
 
@@ -411,9 +469,9 @@ groupID = document.querySelector("#groupID")
 add_item_group_button = document.querySelector("#addItemGroupButton")
 
 
-const tabLeft  = document.querySelector("#tab-left")
+const tabLeft = document.querySelector("#tab-left")
 const tabRight = document.querySelector("#tab-right")
-const layout   = document.querySelector(".layout")
+const layout = document.querySelector(".layout")
 
 tabLeft.addEventListener("click", () => {
   layout.classList.remove("show-right")
@@ -446,7 +504,7 @@ addItemGroupButton.addEventListener("click", async () => {
   })
 
   if (!resp.ok) {
-  	text = await resp.text()
+    text = await resp.text()
     console.error(text)
     notify(text, "error")
     return
@@ -464,63 +522,63 @@ const tagContainer = document.getElementById('tags-container')
 
 function renderTags() {
   // Remove all existing tag elements except the input
-	tagContainer.querySelectorAll('.chip').forEach(chip => chip.remove())
+  tagContainer.querySelectorAll('.chip').forEach(chip => chip.remove())
 
-	selectedTags.forEach(tag => {
-		const chip = document.createElement('span')
-		chip.className = 'chip'
-		chip.textContent = tag.name
+  selectedTags.forEach(tag => {
+    const chip = document.createElement('span')
+    chip.className = 'chip'
+    chip.textContent = tag.name
 
-		const close = document.createElement('span')
-		close.textContent = ' ×'
-		close.style.cursor = 'pointer'
-		close.style.marginLeft = '4px'
-		close.onclick = () => {
-			selectedTags.delete(tag.id)
-			renderTags()
-		}
+    const close = document.createElement('span')
+    close.textContent = ' ×'
+    close.style.cursor = 'pointer'
+    close.style.marginLeft = '4px'
+    close.onclick = () => {
+      selectedTags.delete(tag.id)
+      renderTags()
+    }
 
-		chip.appendChild(close)
-		tagContainer.insertBefore(chip, tagInput)
-	})
+    chip.appendChild(close)
+    tagContainer.insertBefore(chip, tagInput)
+  })
 }
 function renderTags() {
-	tagContainer.querySelectorAll('.chip').forEach(chip => chip.remove())
+  tagContainer.querySelectorAll('.chip').forEach(chip => chip.remove())
 
-	selectedTags.forEach(tag => {
-		const chip = document.createElement('span')
-		chip.className = 'chip'
-		chip.textContent = tag
+  selectedTags.forEach(tag => {
+    const chip = document.createElement('span')
+    chip.className = 'chip'
+    chip.textContent = tag
 
-		const close = document.createElement('span')
-		close.textContent = ' ×'
-		close.style.cursor = 'pointer'
-		close.style.marginLeft = '4px'
+    const close = document.createElement('span')
+    close.textContent = ' ×'
+    close.style.cursor = 'pointer'
+    close.style.marginLeft = '4px'
 
-		close.onclick = () => {
-			selectedTags.delete(tag)
-			renderTags()
-		}
+    close.onclick = () => {
+      selectedTags.delete(tag)
+      renderTags()
+    }
 
-		chip.appendChild(close)
-		tagContainer.insertBefore(chip, tagInput)
-	})
+    chip.appendChild(close)
+    tagContainer.insertBefore(chip, tagInput)
+  })
 }
 
 
 
 // Handle Enter key to add tag
 tagInput.addEventListener('keydown', (e) => {
-	if (e.key === 'Enter') {
-		e.preventDefault()
+  if (e.key === 'Enter') {
+    e.preventDefault()
 
-		const name = tagInput.value.trim()
-		if (!name) return
+    const name = tagInput.value.trim()
+    if (!name) return
 
-		selectedTags.add(name)   // ← add(), not set()
-		renderTags()
-		tagInput.value = ''
-	}
+    selectedTags.add(name)   // ← add(), not set()
+    renderTags()
+    tagInput.value = ''
+  }
 })
 
 
@@ -542,3 +600,17 @@ function notify(message, type = "info", duration = 3000) {
     }, 300)
   }, duration)
 }
+
+document.getElementById("runAdvancedSearch").addEventListener("click", async () => {
+  const params = new URLSearchParams();
+
+  if (priceMin.value) params.set("price_min", priceMin.value);
+  if (priceMax.value) params.set("price_max", priceMax.value);
+  if (dateAfter.value) params.set("after", dateAfter.value);
+  if (dateBefore.value) params.set("before", dateBefore.value);
+  if (tagPartial.value) params.set("tag_partial", tagPartial.value);
+
+  const res = await fetch(`/api/items?${params.toString()}`);
+  const data = await res.json();
+  renderResults(data);
+});

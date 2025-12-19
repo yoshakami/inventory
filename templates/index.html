@@ -15,6 +15,8 @@
     <div class="tabs">
       <button id="tab-left">Edit / Add</button>
       <button id="tab-right">Results</button>
+      <button id="toggleAutocomplete">Search: ON</button>
+      <button id="advancedSearchBtn">Filters</button>
     </div>
   </header>
   <main class="layout show-left" id="layout">
@@ -22,7 +24,7 @@
     <section class="pane left">
       <div class="stack">
         <!-- Top search -->
-        <div class="card stack">
+        <div class="card stack search">
           <h2>Search</h2>
           <!-- Location + parent (TOP) -->
           <div class="location-block">
@@ -44,6 +46,7 @@
           <div>
             <label>ID</label>
             <input id="groupID" placeholder="Leave empty to create new" />
+              <ul class="autocomplete-list" hidden></ul>
           </div>
           <div>
             <label>Name</label>
@@ -56,8 +59,10 @@
           </div>
           <div class="stack">
             <label>Tags</label>
-            <div id="tags-container" class="row" style="flex-wrap: wrap; gap: 6px; background: #151924; padding: 6px; border-radius: 8px; border: 1px solid #2a2f3a;">
-              <input id="tag-input" class="tag" placeholder="Type a tag and press Enter" style="flex: 1; min-width: 120px; border: none; background: transparent; color: #e6e6eb;" />
+            <div id="tags-container" class="row"
+              style="flex-wrap: wrap; gap: 6px; background: #151924; padding: 6px; border-radius: 8px; border: 1px solid #2a2f3a;">
+              <input id="tag-input" class="tag" placeholder="Type a tag and press Enter"
+                style="flex: 1; min-width: 120px; border: none; background: transparent; color: #e6e6eb;" />
               <ul class="autocomplete-list" hidden></ul>
             </div>
           </div>
@@ -157,6 +162,18 @@
         <div class="result-card">Item / search result</div>
         <div class="result-card">Item / search result</div>
       </div>
+    </section>
+    <section id="advancedPanel" hidden>
+      <h3>Advanced Search</h3>
+      <label>Price between</label>
+      <input id="priceMin" type="number" placeholder="Min" />
+      <input id="priceMax" type="number" placeholder="Max" />
+      <label>Seen before / after</label>
+      <input id="dateAfter" type="date" />
+      <input id="dateBefore" type="date" />
+      <label>Partial tag match</label>
+      <input id="tagPartial" placeholder="contains…" />
+      <button id="runAdvancedSearch">Search</button>
     </section>
   </main>
   <script src="/static/script.js"></script>

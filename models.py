@@ -38,7 +38,6 @@ class Tag(Base):
     name: Mapped[str] = mapped_column(unique=True)
 
 
-
 class Battery(Base):
     __tablename__ = "battery"
 
@@ -51,7 +50,7 @@ class Battery(Base):
 
 class ItemGroup(Base):
     __tablename__ = "item_group"
-    
+
     __table_args__ = (
         UniqueConstraint("name", name="uq_item_group_name"),
     )
@@ -72,7 +71,7 @@ class ItemGroup(Base):
 
 class Location(Base):
     __tablename__ = "location"
-    
+
     __table_args__ = (
         UniqueConstraint("name", name="uq_location_name"),
     )
