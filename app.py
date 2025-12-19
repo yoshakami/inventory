@@ -1,7 +1,8 @@
-from flask import Flask, jsonify, request, render_template # do not import return abort!!!!!!!
+from flask import Flask, jsonify, request, render_template, send_from_directory # do not import return abort!!!!!!!
 from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
 from db import engine, SessionLocal
+import os
 from datetime import date, datetime
 from models import (
     Base,
@@ -10,6 +11,7 @@ from models import (
     Tag,
     Location,
     Battery,
+    tag_association,
 )
 
 app = Flask(__name__)
@@ -92,18 +94,15 @@ def search_items():
 
     with SessionLocal() as s:
         items = (
-            s.query(Item)
-            .join(Item.type)
-            .join(ItemType.tags)
-            .options(
-                joinedload(Item.type).joinedload(ItemType.tags),
-                joinedload(Item.type).joinedload(ItemType.battery),
-                joinedload(Item.location),
-            )
-            .filter(func.lower(Tag.name) == q.lower())
-            .limit(50)
-            .all()
-        )
+        s.query(Item)
+        .join(ItemType, Item.type)
+        .join(tag_association, ItemType.id == tag_association.c.item_type_id)
+        .join(Tag, Tag.id == tag_association.c.tag_id)
+        .filter(func.lower(Tag.name) == q.lower())
+        .limit(50)
+        .all()
+    )
+
 
         return jsonify([
             {
@@ -131,6 +130,17 @@ def search_items():
             for i in items
         ])
 
+@app.route("/api/tags")
+def get_all_tags():
+    with SessionLocal() as s:
+        results = s.query(Tag).order_by(Tag.name).all()
+        return jsonify([{"id": t.id, "name": t.name} for t in results])
+
+@app.route("/api/tags2")
+def get_all_tags2():
+    with SessionLocal() as s:
+        results = s.query(Tag).filter(func.lower(Tag.name) == "Lovense".lower()).all()
+        return jsonify([{"id": t.id, "name": t.name} for t in results])
 
 
 """
@@ -197,7 +207,7 @@ def search_item_types():
 # CREATE
 # --------------------
 
-@app.route("/api/tags", methods=["POST"])
+"""@app.route("/api/tags", methods=["POST"])
 def create_tag():
     name = request.json["name"].strip()
     with SessionLocal() as s:
@@ -210,7 +220,7 @@ def create_tag():
         tag = Tag(name=name)
         s.add(tag)
         s.commit()
-        return {"id": tag.id, "name": tag.name}
+        return {"id": tag.id, "name": tag.name}"""
 
 """
 @app.route("/api/locations", methods=["POST"])
@@ -368,7 +378,7 @@ def create_item_type():
                 s.flush()  # ensure battery.id exists
 
         # ---------------------------------
-        # Tags: reuse ONLY if unused
+        # Tags: create new
         # ---------------------------------
         tags: list[Tag] = []
 
@@ -377,27 +387,21 @@ def create_item_type():
             if not tag_name:
                 continue
 
-            # Find an UNUSED tag with same name
             tag = (
                 s.query(Tag)
-                .filter(Tag.name.ilike(tag_name))
-                .filter(
-                    ~Tag.id.in_(
-                        select(tag_association.c.tag_id)
-                    )
-                )
+                .filter(func.lower(Tag.name) == tag_name.lower())
                 .one_or_none()
             )
 
-            # If none available → create new
             if tag is None:
                 tag = Tag(name=tag_name)
                 s.add(tag)
-                s.flush()
+                s.flush()  # get id
 
             tags.append(tag)
 
-
+        for tag in tags:
+            print(tag.name)
         # ---------------------------------
         # Create ItemType (unique name enforced by DB)
         # ---------------------------------
@@ -405,7 +409,7 @@ def create_item_type():
             name=name,
             instruction=data.get("instruction"),
             battery=battery,
-            tags=tags,
+            tags=tags, # link tag id to item type
         )
 
         s.add(item_type)

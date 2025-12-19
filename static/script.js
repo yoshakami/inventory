@@ -288,7 +288,7 @@ addItemGroupButton.addEventListener("click", async () => {
     capacity: Number(capacity.value),
     charging_type: chargingType.value,
     instruction: instructions.value || null,
-    tag_ids: getTagsAsList(), // <-- array you maintain from tag UI
+    tags: getTagsAsList(), // <-- array you maintain from tag UI
   }
 
   if (!payload.name) return
@@ -312,7 +312,7 @@ addItemGroupButton.addEventListener("click", async () => {
 })
 
 
-const selectedTags = new Map()
+const selectedTags = new Set()
 const tagInput = document.getElementById('tag-input')
 const tagContainer = document.getElementById('tags-container')
 
@@ -338,31 +338,45 @@ function renderTags() {
 		tagContainer.insertBefore(chip, tagInput)
 	})
 }
+function renderTags() {
+	tagContainer.querySelectorAll('.chip').forEach(chip => chip.remove())
+
+	selectedTags.forEach(tag => {
+		const chip = document.createElement('span')
+		chip.className = 'chip'
+		chip.textContent = tag
+
+		const close = document.createElement('span')
+		close.textContent = ' ×'
+		close.style.cursor = 'pointer'
+		close.style.marginLeft = '4px'
+
+		close.onclick = () => {
+			selectedTags.delete(tag)
+			renderTags()
+		}
+
+		chip.appendChild(close)
+		tagContainer.insertBefore(chip, tagInput)
+	})
+}
+
+
 
 // Handle Enter key to add tag
-tagInput.addEventListener('keydown', async (e) => {
+tagInput.addEventListener('keydown', (e) => {
 	if (e.key === 'Enter') {
 		e.preventDefault()
+
 		const name = tagInput.value.trim()
 		if (!name) return
 
-			try {
-      // Send to backend to create/find tag
-				const tag = await fetch('/api/tags', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ name })
-				}).then(r => r.json())
+		selectedTags.add(name)   // ← add(), not set()
+		renderTags()
+		tagInput.value = ''
+	}
+})
 
-				selectedTags.set(tag.id, tag)
-				renderTags()
-				tagInput.value = ''
-			} catch(err) {
-				console.error(err)
-				notify('Failed to add tag', "error")
-			}
-		}
-	})
 
 let notifyTimeout = null
 
