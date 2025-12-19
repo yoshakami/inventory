@@ -1,22 +1,79 @@
 console.log("hello!!!!!!!!!!!!!!!")
 
-function autoComplete(selector, API_URL) {
+async function handleAutocompleteSelect({ input, item }) {
+  input.value = item.label
+  input.dataset.id = item.id
+
+  let url = null
+
+  switch (input.id) {
+    case "tag":
+    case "tag-input":
+      url = `/api/items/tag?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "location":
+    case "addLocation":
+      url = `/api/items/location?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "itemGroup":
+    case "name":
+      url = `/api/items/group?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "voltage":
+      url = `/api/items/voltage?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "current":
+      url = `/api/items/current?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "capacity":
+      url = `/api/items/capacity?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "chargingType":
+      url = `/api/items/charging-type?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "boughtPlace":
+      url = `/api/items/bought-place?q=${encodeURIComponent(item.label)}`
+      break
+
+    case "price":
+      url = `/api/items/price?q=${encodeURIComponent(item.label)}`
+      break
+  }
+
+  if (url) {
+    const res = await fetch(url)
+    const data = await res.json()
+    renderResults(data)
+  }
+}
+
+
+function autoComplete({ selector, api, onSelect }) {
   const inputs = document.querySelectorAll(selector)
 
   inputs.forEach(input => {
     const list = input.nextElementSibling
-    let activeIndex = -1
     let items = []
+    let activeIndex = -1
 
-    function render(results) {
+    function close() {
+      list.hidden = true
       list.innerHTML = ""
       activeIndex = -1
-      items = results
+    }
 
-      if (!results.length) {
-        list.hidden = true
-        return
-      }
+    function render(results) {
+      items = results
+      list.innerHTML = ""
+
+      if (!results.length) return close()
 
       results.forEach((item, i) => {
         const li = document.createElement("li")
@@ -24,7 +81,7 @@ function autoComplete(selector, API_URL) {
 
         li.addEventListener("mousedown", e => {
           e.preventDefault()
-          selectItem(i) // ✅ no await here
+          selectItem(i)
         })
 
         list.appendChild(li)
@@ -33,45 +90,35 @@ function autoComplete(selector, API_URL) {
       list.hidden = false
     }
 
-    async function selectItem(index) {
-      const item = items[index]
-      if (!item) return
-
-      input.value = item.label
-      input.dataset.id = item.id
-      list.hidden = true
-      list.innerHTML = ""
-
-      // Load results panel
-      const res = await fetch(
-        `/api/items/search-by-tag?q=${encodeURIComponent(item.label)}`
-      )
-      const data = await res.json()
-      console.log(data)
-      renderResults(data)
-    }
-
     function highlight() {
       [...list.children].forEach((li, i) => {
         li.classList.toggle("active", i === activeIndex)
       })
     }
 
-    input.addEventListener("input", async e => {
-      const value = e.target.value.trim()
+    async function selectItem(index) {
+      const item = items[index]
+      if (!item) return
 
-      if (!value) {
-        list.hidden = true
-        list.innerHTML = ""
-        return
+      input.value = item.label
+      input.dataset.id = item.id
+      close()
+
+      // 🔥 delegate behavior based on input.id
+      if (onSelect) {
+        await onSelect({
+          input,
+          item
+        })
       }
+    }
 
-      const res = await fetch(
-        `${API_URL}?q=${encodeURIComponent(value)}`
-      )
-      const results = await res.json()
+    input.addEventListener("input", async e => {
+      const q = e.target.value.trim()
+      if (!q) return close()
 
-      render(results)
+      const res = await fetch(`${api}?q=${encodeURIComponent(q)}`)
+      render(await res.json())
     })
 
     input.addEventListener("keydown", async e => {
@@ -83,38 +130,45 @@ function autoComplete(selector, API_URL) {
           activeIndex = Math.min(activeIndex + 1, items.length - 1)
           highlight()
           break
-
         case "ArrowUp":
           e.preventDefault()
           activeIndex = Math.max(activeIndex - 1, 0)
           highlight()
           break
-
         case "Enter":
           if (activeIndex >= 0) {
             e.preventDefault()
-            await selectItem(activeIndex) // ✅ allowed here
+            await selectItem(activeIndex)
           }
           break
-
         case "Escape":
-          list.hidden = true
+          close()
           break
       }
     })
 
     document.addEventListener("mousedown", e => {
       if (!input.contains(e.target) && !list.contains(e.target)) {
-        list.hidden = true
+        close()
       }
     })
   })
 }
 
 
-autoComplete('.location', "/api/locations/search")
-autoComplete('.tag', "/api/tags/search")
-autoComplete('.itemGroup', "/api/item-group/search")
+autoComplete({ selector: ".location", api: "/api/location", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: ".tag", api: "/api/tag", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: ".itemGroup", api: "/api/item-group", onSelect: handleAutocompleteSelect })
+
+autoComplete({ selector: "#voltage", api: "/api/battery/voltage", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#current", api: "/api/battery/current", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#capacity", api: "/api/battery/capacity", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#chargingType", api: "/api/battery/charging-type", onSelect: handleAutocompleteSelect })
+
+autoComplete({ selector: "#boughtPlace", api: "/api/items/bought-place", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#price", api: "/api/items/price", onSelect: handleAutocompleteSelect })
+
+
 function isoLabel(label, value) {
   return value ? `<div class="muted"><strong>${label}:</strong> ${value}</div>` : ""
 }
