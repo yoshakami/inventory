@@ -261,6 +261,23 @@ def get_or_create_tags(s, names):
         tags.append(tag)
     return tags
 
+@app.route("/api/items", methods=["DELETE"])
+def delete_item():
+    item_id = request.args.get("id", type=int)
+
+    if not item_id:
+        return abort(400, "Item id is required")
+
+    with SessionLocal() as s:
+        item = s.get(Item, item_id)
+        if not item:
+            return abort(404, "Item not found")
+
+        s.delete(item)
+        s.commit()
+
+        return {"deleted": True, "id": item_id}, 200
+
 @app.route("/api/item-group", methods=["POST"])
 def create_item_group():
     data = request.json or {}

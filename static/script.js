@@ -115,6 +115,81 @@ function autoComplete(selector, API_URL) {
 autoComplete('.location', "/api/locations/search")
 autoComplete('.tag', "/api/tags/search")
 autoComplete('.itemGroup', "/api/item-group/search")
+function isoLabel(label, value) {
+  return value ? `<div class="muted"><strong>${label}:</strong> ${value}</div>` : ""
+}
+
+function boolLabel(label, value) {
+  return value ? `<div class="muted">${label}</div>` : ""
+}
+
+function renderBattery(b) {
+  if (!b) return ""
+
+  const parts = []
+  if (b.voltage) parts.push(`${b.voltage}V`)
+  if (b.current) parts.push(`${b.current}A`)
+  if (b.capacity) parts.push(`${b.capacity}mAh`)
+  if (b.charging_type) parts.push(b.charging_type)
+
+  return parts.length
+    ? `<div class="muted">🔋 ${parts.join(" · ")}</div>`
+    : ""
+}
+
+async function deleteItem(id, cardEl) {
+  const res = await fetch(`/api/items?id=${id}`, {
+    method: "DELETE",
+  })
+
+  if (!res.ok) {
+    notify("Failed to delete item", "error")
+    return
+  }
+
+  cardEl.remove()
+  notify("Item deleted", "success")
+}
+
+function loadItemGroup(group) {
+  groupID.value = group.group_id || group.id
+  nameInput.value = group.group
+  instructions.value = group.instruction || ""
+
+  // Battery
+  voltage.value = group.battery?.voltage || ""
+  current.value = group.battery?.current || ""
+  capacity.value = group.battery?.capacity || ""
+  chargingType.value = group.battery?.charging_type || ""
+
+  // Tags
+  selectedTags.clear()
+  group.tags.forEach(t => selectedTags.add(t))
+  renderTags()
+}
+function loadItem(item) {
+  itemID.value = item.id
+  itemGroup.value = item.group
+  locationInput.value = item.location
+
+  lastSeenDate.value = item.last_seen || ""
+  lastChargeDate.value = item.last_charge || ""
+  acquiredDate.value = item.acquired || ""
+
+  hasDedicatedCable.checked = !!item.has_cable
+  boughtPlace.value = item.bought_place || ""
+  price.value = item.price ?? ""
+}
+function loadItemForEdit(item) {
+  loadItemGroup(item)
+  loadItem(item)
+
+  // Switch to edit pane
+  layout.classList.remove("show-right")
+  layout.classList.add("show-left")
+
+  notify("Editing item", "info")
+}
 
 function renderResults(items) {
   const container = document.querySelector(".results")
@@ -130,36 +205,48 @@ function renderResults(items) {
     card.className = "result-card"
 
     card.innerHTML = `
-      <h3>${item.group}</h3>
-
-      <p class="muted">${item.location}</p>
+      <div class="card-header">
+        <h3>${item.group}</h3>
+        <div class="actions">
+          <button class="edit-btn">✏️</button>
+          <button class="danger-btn">🗑</button>
+        </div>
+      </div>
 
       ${item.instruction ? `<p>${item.instruction}</p>` : ""}
 
-      ${item.battery ? `
-        <div class="muted">
-          🔋 ${item.battery.voltage}V ·
-          ${item.battery.current}A ·
-          ${item.battery.capacity}mAh ·
-          ${item.battery.charging_type}
-        </div>
-      ` : ""}
+      <div class="stack-sm">
+        ${renderBattery(item.battery)}
 
-      ${item.tags.length ? `
-        <div class="chips">
-          ${item.tags.map(t => `<span class="chip">${t}</span>`).join("")}
-        </div>
-      ` : ""}
+        ${item.tags?.length ? `
+          <div class="chips">
+            ${item.tags.map(t => `<span class="chip">${t}</span>`).join("")}
+          </div>
+        ` : ""}
 
-      <div class="muted">
-        ${item.has_cable ? "🔌 Cable included" : ""}
-        ${item.price ? `· €${item.price}` : ""}
+        ${isoLabel("Location", item.location)}
+        ${isoLabel("Bought at", item.bought_place)}
+        ${isoLabel("Price", item.price ? `€${item.price}` : null)}
+
+        ${isoLabel("Acquired", item.acquired)}
+        ${isoLabel("Last seen", item.last_seen)}
+        ${isoLabel("Last charged", item.last_charge)}
+
+        ${boolLabel("🔌 Dedicated cable included", item.has_cable)}
       </div>
     `
+
+    card.querySelector(".danger-btn").onclick =
+      () => deleteItem(item.id, card)
+
+    card.querySelector(".edit-btn").onclick =
+      () => loadItemForEdit(item)
 
     container.appendChild(card)
   }
 }
+
+
 
 
 const addLocationInput = document.querySelector("#addLocation")
