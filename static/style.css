@@ -102,8 +102,7 @@ label {
     -------------------- */
 #layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  /* both have the same width*/
+  grid-template-columns: minmax(260px, 1fr) 2fr minmax(260px, 1fr);
   min-height: 100vh;
 }
 
@@ -119,6 +118,11 @@ label {
 
 .right {
   background: #0d0f14;
+}
+
+.filters {
+  background: #0f1115;
+  border-left: 1px solid #222738;
 }
 
 .card {
@@ -180,6 +184,10 @@ label {
   }
 
   #layout.show-right .right {
+    display: block;
+  }
+
+  #layout.show-filters .filters {
     display: block;
   }
 }

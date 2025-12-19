@@ -16,7 +16,7 @@ function updateToggleUI() {
     searchSection.style.display = "none"
     toggleBtn.style.background = "red"
     toggleBtn.style.borderColor = "red"
-    
+
   }
 }
 
@@ -29,28 +29,36 @@ toggleBtn.addEventListener("click", () => {
 updateToggleUI();
 
 const advBtn = document.getElementById("advancedSearchBtn");
-const advPanel = document.getElementById("advancedPanel");
-
-advBtn.addEventListener("click", () => {
-  advPanel.hidden = !advPanel.hidden;
-});
+const advPanel = document.querySelector(".filters");
 
 async function handleAutocompleteSelect({ input, item }) {
   if (!AUTOCOMPLETE_ENABLED) return;
 
+  // Default behavior (search / fill field)
   input.value = item.label
   input.dataset.id = item.id
+
+  // 🏷 TAG INPUT = ADD TAG IMMEDIATELY
+  if (input.id === "tag-input") {
+    selectedTags.add(item.label)
+    renderTags()
+    input.value = ""
+    // notify(`Tag "${item.label}" added`, "success", 1500)
+  }
+
 
   let url = null
 
   switch (input.id) {
-    case "tag":
+    case "tag-search":
     case "tag-input":
       url = `/api/items/tag?q=${encodeURIComponent(item.label)}`
       break
 
     case "location":
     case "addLocation":
+    case "addParent":
+    case "location-search":
       url = `/api/items/location?q=${encodeURIComponent(item.label)}`
       break
 
@@ -102,7 +110,6 @@ async function handleAutocompleteSelect({ input, item }) {
     case "groupID":
       url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
       break
-
   }
 
   if (url) {
@@ -156,6 +163,7 @@ function autoComplete({ selector, api, onSelect }) {
 
     async function selectItem(index) {
       const item = items[index]
+      console.log("selectItem", index, item)
       if (!item) return
 
       input.value = item.label
@@ -473,12 +481,20 @@ const tabLeft = document.querySelector("#tab-left")
 const tabRight = document.querySelector("#tab-right")
 const layout = document.querySelector(".layout")
 
+advBtn.addEventListener("click", () => {
+  layout.classList.remove("show-right")
+  layout.classList.remove("show-left")
+  layout.classList.add("show-filters")
+});
+
 tabLeft.addEventListener("click", () => {
   layout.classList.remove("show-right")
+  layout.classList.remove("show-filters")
   layout.classList.add("show-left")
 })
 
 tabRight.addEventListener("click", () => {
+  layout.classList.remove("show-filters")
   layout.classList.remove("show-left")
   layout.classList.add("show-right")
 })

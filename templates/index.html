@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +8,7 @@
   <link href="/static/style.css" rel="stylesheet" />
   <link rel="icon" href="{{ url_for('static', filename='Hatsune-Miku.ico') }}">
 </head>
+
 <body>
   <div id="notification" class="notification" hidden></div>
   <!-- Mobile header / pane switcher -->
@@ -30,12 +32,12 @@
           <div class="location-block">
             <div>
               <label>Location</label>
-              <input class="location" placeholder="Location" />
+              <input id="location-search" class="location" placeholder="Location" />
               <ul class="autocomplete-list" hidden></ul>
             </div>
             <div>
               <label>Tag</label>
-              <input class="tag" placeholder="Tag" />
+              <input id="tag-search" class="tag" placeholder="Tag" />
               <ul class="autocomplete-list" hidden></ul>
             </div>
           </div>
@@ -46,7 +48,7 @@
           <div>
             <label>ID</label>
             <input id="groupID" placeholder="Leave empty to create new" />
-              <ul class="autocomplete-list" hidden></ul>
+            <ul class="autocomplete-list" hidden></ul>
           </div>
           <div>
             <label>Name</label>
@@ -163,19 +165,34 @@
         <div class="result-card">Item / search result</div>
       </div>
     </section>
-    <section id="advancedPanel" hidden>
-      <h3>Advanced Search</h3>
-      <label>Price between</label>
-      <input id="priceMin" type="number" placeholder="Min" />
-      <input id="priceMax" type="number" placeholder="Max" />
-      <label>Seen before / after</label>
-      <input id="dateAfter" type="date" />
-      <input id="dateBefore" type="date" />
-      <label>Partial tag match</label>
-      <input id="tagPartial" placeholder="contains…" />
-      <button id="runAdvancedSearch">Search</button>
+    <section class="pane filters">
+      <div class="card stack">
+        <h2>Advanced Search</h2>
+        <div>
+          <label>Price min</label>
+          <input id="priceMin" type="number" placeholder="Min" />
+        </div>
+        <div>
+          <label>Price max</label>
+          <input id="priceMax" type="number" placeholder="Max" />
+        </div>
+        <div>
+          <label>Seen before</label>
+          <input id="dateBefore" type="date" />
+        </div>
+        <div>
+          <label>Seen after</label>
+          <input id="dateAfter" type="date" />
+        </div>
+        <div>
+          <label>Partial tag match</label>
+          <input id="tagPartial" placeholder="contains…" />
+        </div>
+        <button id="runAdvancedSearch">Search</button>
+      </div>
     </section>
   </main>
   <script src="/static/script.js"></script>
 </body>
+
 </html>

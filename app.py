@@ -94,7 +94,9 @@ def battery_to_dict(b):
 
 def item_to_dict(i: Item):
     return {
-        "id": i.id, "group": i.group.name, "instruction": i.group.instruction, "battery": battery_to_dict(i.group.battery), "tags": [t.name for t in i.group.tags], "location": location_helper_func(i.location), "last_seen": iso(i.last_seen_date), "last_charge": iso(i.last_charge_date), "acquired": iso(i.acquired_date), "has_cable": i.has_dedicated_cable, "bought_place": i.bought_place, "price": i.price, }
+        "id": i.id, "group": i.group.name, "instruction": i.group.instruction, "battery": battery_to_dict(i.group.battery),
+        "tags": [t.name for t in i.group.tags], "location": location_helper_func(i.location), "last_seen": iso(i.last_seen_date),
+        "last_charge": iso(i.last_charge_date), "acquired": iso(i.acquired_date), "has_cable": i.has_dedicated_cable, "bought_place": i.bought_place, "price": i.price, }
 
 
 @app.route("/api/items/tag")
@@ -294,7 +296,8 @@ def search_items_by_group_id():
         if is_autocomplete():
             return jsonify([{"id": q, "label": str(q)}])
         return jsonify([item_to_dict(i) for i in items])
-    
+
+
 @app.route("/api/items")
 def advanced_search():
     price_min = request.args.get("price_min", type=float)
@@ -304,7 +307,8 @@ def advanced_search():
     tag_partial = normalize(request.args.get("tag_partial", ""))
 
     with SessionLocal() as s:
-        q = s.query(Item).join(Item.group).outerjoin(tag_association).outerjoin(Tag)
+        q = s.query(Item).join(Item.group).outerjoin(
+            tag_association).outerjoin(Tag)
 
         if price_min is not None:
             q = q.filter(Item.price >= price_min)
@@ -329,6 +333,8 @@ def advanced_search():
 # --------------------
 # CREATE
 # --------------------
+
+
 def parse_date(value: str) -> date | None:
     if not value:
         return None
