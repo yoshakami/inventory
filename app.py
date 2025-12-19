@@ -17,7 +17,7 @@ from models import (
 app = Flask(__name__)
 Base.metadata.create_all(engine)
 
-def abort(resp_status, message): # flask moment
+def abort(resp_status, message): # this one sends JSON instead of HTML
     return {"error": message}, resp_status
 
 @app.route("/")
@@ -34,49 +34,21 @@ def favicon():
 
 
 # --------------------
-# META
-# --------------------
-
-@app.route("/api/meta")
-def meta():
-    with SessionLocal() as s:
-        return jsonify({
-            "types": [
-                {"id": t.id, "name": t.name}
-                for t in s.query(ItemGroup)
-            ],
-            "batteries": [
-                {
-                    "id": b.id,
-                    "label": f"{b.voltage}V {b.capacity}mAh",
-                    "charging_type": b.charging_type,
-                }
-                for b in s.query(Battery)
-            ],
-        })
-
-
-
-# --------------------
 # SEARCH (autocomplete)
 # --------------------
-
-@app.route("/api/tags/search")
-def search_tags():
-    q = request.args.get("q", "").strip()
+def search_by_name(model, q, label_fn=lambda x: x.name, limit=10):
     if not q:
-        return jsonify([])
+        return []
 
     with SessionLocal() as s:
         results = (
-            s.query(Tag)
-            .filter(Tag.name.ilike(f"%{q}%"))
-            .order_by(Tag.name)
-            .limit(10)
+            s.query(model)
+            .filter(model.name.ilike(f"%{q}%"))
+            .order_by(model.name)
+            .limit(limit)
             .all()
         )
-
-        return jsonify([{"id": t.id, "label": t.name} for t in results])
+        return [{"id": r.id, "label": label_fn(r)} for r in results]
 
 def location_helper_func(loc: Location) -> str:
     parts = []
@@ -86,6 +58,53 @@ def location_helper_func(loc: Location) -> str:
         current = current.parent
     return " > ".join(reversed(parts))
 
+@app.route("/api/tags/search")
+def search_tags():
+    return jsonify(search_by_name(Tag, request.args.get("q", "")))
+
+@app.route("/api/item-group/search")
+def search_item_groups():
+    return jsonify(search_by_name(ItemGroup, request.args.get("q", "")))
+
+@app.route("/api/locations/search")
+def search_locations():
+    return jsonify(search_by_name(
+        Location,
+        request.args.get("q", ""),
+        label_fn=location_helper_func,
+    ))
+    
+def iso(d):
+    return d.isoformat() if d else None
+
+
+def battery_to_dict(b):
+    if not b:
+        return None
+    return {
+        "voltage": b.voltage,
+        "current": b.current,
+        "capacity": b.capacity,
+        "charging_type": b.charging_type,
+    }
+
+
+def item_to_dict(i: Item):
+    return {
+        "id": i.id,
+        "group": i.group.name,
+        "instruction": i.group.instruction,
+        "battery": battery_to_dict(i.group.battery),
+        "tags": [t.name for t in i.group.tags],
+        "location": location_helper_func(i.location),
+        "last_seen": iso(i.last_seen_date),
+        "last_charge": iso(i.last_charge_date),
+        "acquired": iso(i.acquired_date),
+        "has_cable": i.has_dedicated_cable,
+        "bought_place": i.bought_place,
+        "price": i.price,
+    }
+
 @app.route("/api/items/search-by-tag")
 def search_items():
     q = request.args.get("q", "").strip()
@@ -94,194 +113,25 @@ def search_items():
 
     with SessionLocal() as s:
         items = (
-        s.query(Item)
-        .join(ItemGroup, Item.group)
-        .join(tag_association, ItemGroup.id == tag_association.c.item_group_id)
-        .join(Tag, Tag.id == tag_association.c.tag_id)
-        .filter(func.lower(Tag.name) == q.lower())
-        .limit(50)
-        .all()
-        )
-        return jsonify([
-            {
-                "id": i.id,
-                "group": i.group.name,
-                "instruction": i.group.instruction,
-                "battery": (
-                    {
-                        "voltage": i.group.battery.voltage,
-                        "current": i.group.battery.current,
-                        "capacity": i.group.battery.capacity,
-                        "charging_type": i.group.battery.charging_type,
-                    }
-                    if i.group.battery else None
-                ),
-                "tags": [t.name for t in i.group.tags],
-                "location": location_helper_func(i.location),
-                "last_seen": i.last_seen_date.isoformat() if i.last_seen_date else None,
-                "last_charge": i.last_charge_date.isoformat() if i.last_charge_date else None,
-                "acquired": i.acquired_date.isoformat() if i.acquired_date else None,
-                "has_cable": i.has_dedicated_cable,
-                "bought_place": i.bought_place,
-                "price": i.price,
-            }
-            for i in items
-        ])
-
-@app.route("/api/tags")
-def get_all_tags():
-    with SessionLocal() as s:
-        results = s.query(Tag).order_by(Tag.name).all()
-        return jsonify([{"id": t.id, "name": t.name} for t in results])
-
-@app.route("/api/tags2")
-def get_all_tags2():
-    with SessionLocal() as s:
-        results = s.query(Tag).filter(func.lower(Tag.name) == "Lovense".lower()).all()
-        return jsonify([{"id": t.id, "name": t.name} for t in results])
-
-
-"""
-@app.route("/api/locations/search") # this ver doesn't care about parent
-def search_locations():
-    q = request.args.get("q", "").strip()
-    if not q:
-        return jsonify([])
-
-    with SessionLocal() as s:
-        results = (
-            s.query(Location)
-            .filter(Location.name.ilike(f"%{q}%"))
-            .order_by(Location.name)
-            .limit(10)
+            s.query(Item)
+            .join(Item.group)
+            .join(tag_association)
+            .join(Tag)
+            .filter(func.lower(Tag.name) == q.lower())
+            .limit(50)
             .all()
         )
-        return jsonify([{"id": l.id, "label": l.name} for l in results])
-"""
 
-@app.route("/api/locations/search") # this ver also show parents
-def search_locations():
-    q = request.args.get("q", "").strip()
-    if not q:
-        return jsonify([])
-
-    with SessionLocal() as s:
-        results = (
-            s.query(Location)
-            .filter(Location.name.ilike(f"%{q}%"))
-            .order_by(Location.name)
-            .limit(10)
-            .all()
-        )
-        for loc in results:
-            print(location_helper_func(loc))
-        return jsonify([
-            {
-                "id": loc.id,
-                "label": location_helper_func(loc)
-            }
-            for loc in results
-        ])
-
-
-@app.route("/api/item-group/search")
-def search_item_groups():
-    q = request.args.get("q", "").strip()
-    if not q:
-        return jsonify([])
-
-    with SessionLocal() as s:
-        results = (
-            s.query(ItemGroup)
-            .filter(ItemGroup.name.ilike(f"%{q}%"))
-            .order_by(ItemGroup.name)
-            .limit(10)
-            .all()
-        )
-        return jsonify([{"id": it.id, "label": it.name} for it in results])
-
+        return jsonify([item_to_dict(i) for i in items])
 
 # --------------------
 # CREATE
 # --------------------
 
-"""@app.route("/api/tags", methods=["POST"])
-def create_tag():
-    name = request.json["name"].strip()
-    with SessionLocal() as s:
-        existing = s.execute(
-            select(Tag).where(Tag.name.ilike(name))
-        ).scalar_one_or_none()
-        if existing:
-            return {"id": existing.id, "name": existing.name}
-
-        tag = Tag(name=name)
-        s.add(tag)
-        s.commit()
-        return {"id": tag.id, "name": tag.name}"""
-
-"""
-@app.route("/api/locations", methods=["POST"])
-def create_location():
-    data = request.json
-    with SessionLocal() as s:
-        loc = Location(
-            name=data["name"],
-            parent_id=data.get("parent_id"),
-        )
-        s.add(loc)
-        s.commit()
-        return {"id": loc.id, "name": loc.name}
-
-"""
-
-@app.route("/api/locations", methods=["POST"])
-def create_location():
-    data = request.json or {}
-
-    name = (data.get("name") or "").rsplit('>', 1)[-1].strip()
-    parent = data.get("parent")
-
-    if not name:
-        return abort(400, "Location name cannot be empty")
-
-    with SessionLocal() as s:
-        if type(parent) == type(None): # python moment
-            parent_id = None
-        else:
-            # check if parent exists
-            parent_location_obj = s.query(Location).filter(Location.name.ilike(parent)).one_or_none()
-            if type(parent_location_obj) == type(None): # python moment
-                parent_id = None
-            else:
-                parent_id = parent_location_obj.id
-
-        existing = (  # check duplicate
-            s.query(Location)
-            .filter(
-                Location.name.ilike(name),
-                Location.parent_id == parent_id
-            )
-            .one_or_none()
-        )
-
-        if existing:
-            return {"id": existing.id, "name": existing.name}, 200
-
-        loc = Location(
-            name=name,
-            parent_id=parent_id,
-        )
-        s.add(loc)
-        s.commit()
-
-        return {"id": loc.id, "name": loc.name}, 201
-
-
 def parse_date(value: str) -> date | None:
     if not value:
         return None
-    # Try ISO first
+    # Try YYYY-MM-DD
     try:
         return date.fromisoformat(value)
     except ValueError:
@@ -290,7 +140,25 @@ def parse_date(value: str) -> date | None:
     try:
         return datetime.strptime(value, "%d/%m/%Y").date()
     except ValueError:
+        pass
+    # Try DD-MM-YYYY
+    try:
+        return datetime.strptime(value, "%d-%m-%Y").date()
+    except ValueError:
         return None
+    
+ITEM_FIELDS = {
+    "last_seen_date": parse_date,
+    "last_charge_date": parse_date,
+    "has_dedicated_cable": bool,
+    "acquired_date": parse_date,
+    "price": lambda x: x,
+}
+
+def apply_item_fields(item, data):
+    for field, cast in ITEM_FIELDS.items():
+        setattr(item, field, cast(data.get(field)))
+    item.bought_place = (data.get("bought_place") or "").strip() or None
 
 
 @app.route("/api/items", methods=["POST"])
@@ -303,63 +171,95 @@ def create_item():
     if not group_name or not location_name:
         return abort(400, "Item Group and Location are required")
 
-    itemID = data.get("id")
-
     with SessionLocal() as s:
-        group_obj = (
-            s.query(ItemGroup)
-            .filter(ItemGroup.name.ilike(group_name))
-            .one_or_none()
-        )
-        if not group_obj:
+        group = s.query(ItemGroup).filter(ItemGroup.name.ilike(group_name)).one_or_none()
+        if not group:
             return abort(400, f"Item Group '{group_name}' not found")
 
-        # Resolve Location
         location_name = location_name.rsplit(">", 1)[-1].strip()
-        location_obj = (
-            s.query(Location)
-            .filter(Location.name.ilike(location_name))
-            .one_or_none()
-        )
-        if location_obj is None:
+        location = s.query(Location).filter(Location.name.ilike(location_name)).one_or_none()
+        if not location:
             return abort(400, f"Location '{location_name}' not found")
 
-        if itemID is not None:
-            # Updating existing item
-            item = s.query(Item).get(itemID)
-            if not item:
-                return abort(404, f"Item with id {itemID} not found")
+        item = s.get(Item, data.get("id")) if data.get("id") else Item()
+        if not item:
+            return abort(404, "Item not found")
 
-            item.group_id = group_obj.id
-            item.location_id = location_obj.id
-            item.last_seen_date = parse_date(data.get("last_seen_date"))
-            item.last_charge_date = parse_date(data.get("last_charge_date"))
-            item.has_dedicated_cable = bool(data.get("has_dedicated_cable"))
-            item.acquired_date = parse_date(data.get("acquired_date"))
-            item.bought_place = (data.get("bought_place") or "").strip() or None
-            item.price = data.get("price")
-
-            s.commit()
-            return {"id": item.id}, 200
-
-        # Create Item
-        item = Item(
-            group_id=group_obj.id,
-            location_id=location_obj.id,
-            last_seen_date=parse_date(data.get("last_seen_date")),
-            last_charge_date=parse_date(data.get("last_charge_date")),
-            has_dedicated_cable=bool(data.get("has_dedicated_cable")),
-            acquired_date=parse_date(data.get("acquired_date")),
-            bought_place=(data.get("bought_place") or "").strip() or None,
-            price=data.get("price"),
-        )
+        item.group_id = group.id
+        item.location_id = location.id
+        apply_item_fields(item, data)
 
         s.add(item)
         s.commit()
 
-        return {"id": item.id}, 201
+        return {"id": item.id}, 200 if data.get("id") else 201
+
+@app.route("/api/locations", methods=["POST"])
+def create_location():
+    data = request.json or {}
+
+    name = (data.get("name") or "").rsplit(">", 1)[-1].strip()
+    parent_name = data.get("parent")
+
+    if not name:
+        return abort(400, "Location name cannot be empty")
+
+    with SessionLocal() as s:
+        parent = (
+            s.query(Location)
+            .filter(Location.name.ilike(parent_name))
+            .one_or_none()
+            if parent_name else None
+        )
+
+        existing = (
+            s.query(Location)
+            .filter(Location.name.ilike(name), Location.parent_id == (parent.id if parent else None))
+            .one_or_none()
+        )
+        if existing:
+            return {"id": existing.id, "name": existing.name}, 200
+
+        loc = Location(name=name, parent=parent)
+        s.add(loc)
+        s.commit()
+
+        return {"id": loc.id, "name": loc.name}, 201
 
 
+def get_or_create_battery(s, **fields):
+    if not any(fields.values()):
+        return None
+
+    battery = s.query(Battery).filter_by(**fields).one_or_none()
+    if battery:
+        return battery
+
+    battery = Battery(**fields)
+    s.add(battery)
+    s.flush()
+    return battery
+
+
+def get_or_create_tags(s, names):
+    tags = []
+    for name in names:
+        name = (name or "").strip()
+        if not name:
+            continue
+
+        tag = (
+            s.query(Tag)
+            .filter(func.lower(Tag.name) == name.lower())
+            .one_or_none()
+        )
+        if not tag:
+            tag = Tag(name=name)
+            s.add(tag)
+            s.flush()
+
+        tags.append(tag)
+    return tags
 
 @app.route("/api/item-group", methods=["POST"])
 def create_item_group():
@@ -369,104 +269,34 @@ def create_item_group():
     if not name:
         return abort(400, "Item group name is required")
 
-    tags_payload = data.get("tags", [])
-
-    voltage = data.get("voltage")
-    current = data.get("current")
-    capacity = data.get("capacity")
-    charging_type = data.get("charging_type")
-    item_group_id = data.get("id")
-
     with SessionLocal() as s:
-        # ---------------------------------
-        # Load existing ItemGroup (update mode)
-        # ---------------------------------
-        item_group = None
-        if item_group_id is not None:
-            item_group = (
-                s.query(ItemGroup)
-                .filter_by(id=item_group_id)
-                .one_or_none()
-            )
+        item_group = s.get(ItemGroup, data.get("id"))
 
-        # ---------------------------------
-        # Battery: create ONLY if not all null
-        # ---------------------------------
-        battery = None
-        if any(v is not None for v in (voltage, current, capacity, charging_type)):
-            battery = (
-                s.query(Battery)
-                .filter_by(
-                    voltage=voltage,
-                    current=current,
-                    capacity=capacity,
-                    charging_type=charging_type,
-                )
-                .one_or_none()
-            )
-
-            if battery is None:
-                battery = Battery(
-                    voltage=voltage,
-                    current=current,
-                    capacity=capacity,
-                    charging_type=charging_type,
-                )
-                s.add(battery)
-                s.flush()
-
-        # ---------------------------------
-        # Tags: get or create (GLOBAL tags)
-        # ---------------------------------
-        tags: list[Tag] = []
-
-        for raw_name in tags_payload:
-            tag_name = (raw_name or "").strip()
-            if not tag_name:
-                continue
-
-            tag = (
-                s.query(Tag)
-                .filter(func.lower(Tag.name) == tag_name.lower())
-                .one_or_none()
-            )
-
-            if tag is None:
-                tag = Tag(name=tag_name)
-                s.add(tag)
-                s.flush()
-
-            tags.append(tag)
-
-        # ---------------------------------
-        # UPDATE existing ItemGroup
-        # ---------------------------------
-        if item_group is not None:
-            item_group.name = name
-            item_group.instruction = data.get("instruction")
-            item_group.battery = battery
-            item_group.tags = tags  # replace associations
-
-            s.commit()
-            return {"id": item_group.id, "updated": True}, 200
-
-        # ---------------------------------
-        # CREATE new ItemGroup
-        # ---------------------------------
-        item_group = ItemGroup(
-            name=name,
-            instruction=data.get("instruction"),
-            battery=battery,
-            tags=tags,
+        battery = get_or_create_battery(
+            s,
+            voltage=data.get("voltage"),
+            current=data.get("current"),
+            capacity=data.get("capacity"),
+            charging_type=data.get("charging_type"),
         )
+
+        tags = get_or_create_tags(s, data.get("tags", []))
+
+        if not item_group:
+            item_group = ItemGroup()
+
+        item_group.name = name
+        item_group.instruction = data.get("instruction")
+        item_group.battery = battery
+        item_group.tags = tags
 
         s.add(item_group)
         s.commit()
 
-        return {"id": item_group.id, "created": True}, 201
-
-
-
+        return {
+            "id": item_group.id,
+            "updated": bool(data.get("id")),
+        }, 200 if data.get("id") else 201
 
 if __name__ == "__main__":
     app.run(debug=True)
