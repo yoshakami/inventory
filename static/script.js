@@ -114,7 +114,7 @@ function autoComplete(selector, API_URL) {
 
 autoComplete('.location', "/api/locations/search")
 autoComplete('.tag', "/api/tags/search")
-autoComplete('.itemGroup', "/api/item-types/search")
+autoComplete('.itemGroup', "/api/item-group/search")
 
 function renderResults(items) {
   const container = document.querySelector(".results")
@@ -130,7 +130,7 @@ function renderResults(items) {
     card.className = "result-card"
 
     card.innerHTML = `
-      <h3>${item.type}</h3>
+      <h3>${item.group}</h3>
 
       <p class="muted">${item.location}</p>
 
@@ -210,12 +210,14 @@ acquiredDate = document.querySelector("#acquiredDate")
 lastChargeDate = document.querySelector("#lastChargeDate")
 lastSeenDate = document.querySelector("#lastSeenDate")
 itemGroup = document.querySelector("#itemGroup")
+itemID = document.querySelector("#itemID")
 add_item_button = document.querySelector("#addItemButton")
 
 
 addItemButton.addEventListener("click", async () => {
   const payload = {
-    type: itemGroup.value,
+    id: itemID.value || null,
+    group: itemGroup.value,
     location: locationInput.value,
 
     last_seen_date: lastSeenDate.value || null,
@@ -263,6 +265,8 @@ voltage = document.querySelector("#voltage")
 tags = document.querySelector("#tags")
 instructions = document.querySelector("#instructions")
 nameInput = document.querySelector("#name")
+groupID = document.querySelector("#groupID")
+
 add_item_group_button = document.querySelector("#addItemGroupButton")
 
 
@@ -282,6 +286,7 @@ tabRight.addEventListener("click", () => {
 
 addItemGroupButton.addEventListener("click", async () => {
   const payload = {
+    id: groupID.value || null,
     name: nameInput.value.trim(),
     voltage: Number(voltage.value),
     current: Number(current.value),
@@ -293,7 +298,7 @@ addItemGroupButton.addEventListener("click", async () => {
 
   if (!payload.name) return
 
-  const resp = await fetch("/api/item-types", {
+  const resp = await fetch("/api/item-group", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

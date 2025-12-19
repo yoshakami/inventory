@@ -22,12 +22,12 @@ class Base(DeclarativeBase):
     pass
 
 
-# Association table: ItemType <-> Tag
+# Association table: ItemGroup <-> Tag
 tag_association = Table(
     "tag_association",
     Base.metadata,
     Column("tag_id", ForeignKey("tag.id"), primary_key=True),
-    Column("item_type_id", ForeignKey("item_type.id"), primary_key=True),
+    Column("item_group_id", ForeignKey("item_group.id"), primary_key=True),
 )
 
 
@@ -49,11 +49,11 @@ class Battery(Base):
     charging_type: Mapped[str]
 
 
-class ItemType(Base):
-    __tablename__ = "item_type"
+class ItemGroup(Base):
+    __tablename__ = "item_group"
     
     __table_args__ = (
-        UniqueConstraint("name", name="uq_item_type_name"),
+        UniqueConstraint("name", name="uq_item_group_name"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -66,7 +66,7 @@ class ItemType(Base):
     )
     battery = relationship("Battery")
 
-    items = relationship("Item", back_populates="type")
+    items = relationship("Item", back_populates="group")
     tags = relationship("Tag", secondary=tag_association)
 
 
@@ -100,8 +100,8 @@ class Item(Base):
     bought_place: Mapped[Optional[str]]
     price: Mapped[Optional[float]]
 
-    type_id: Mapped[int] = mapped_column(ForeignKey("item_type.id"))
-    type = relationship("ItemType", back_populates="items")
+    group_id: Mapped[int] = mapped_column(ForeignKey("item_group.id"))
+    group = relationship("ItemGroup", back_populates="items")
 
     location_id: Mapped[int] = mapped_column(ForeignKey("location.id"))
     location = relationship("Location", back_populates="items")

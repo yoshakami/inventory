@@ -7,7 +7,7 @@ from datetime import date, datetime
 from models import (
     Base,
     Item,
-    ItemType,
+    ItemGroup,
     Tag,
     Location,
     Battery,
@@ -43,7 +43,7 @@ def meta():
         return jsonify({
             "types": [
                 {"id": t.id, "name": t.name}
-                for t in s.query(ItemType)
+                for t in s.query(ItemGroup)
             ],
             "batteries": [
                 {
@@ -95,30 +95,28 @@ def search_items():
     with SessionLocal() as s:
         items = (
         s.query(Item)
-        .join(ItemType, Item.type)
-        .join(tag_association, ItemType.id == tag_association.c.item_type_id)
+        .join(ItemGroup, Item.group)
+        .join(tag_association, ItemGroup.id == tag_association.c.item_group_id)
         .join(Tag, Tag.id == tag_association.c.tag_id)
         .filter(func.lower(Tag.name) == q.lower())
         .limit(50)
         .all()
-    )
-
-
+        )
         return jsonify([
             {
                 "id": i.id,
-                "type": i.type.name,
-                "instruction": i.type.instruction,
+                "group": i.group.name,
+                "instruction": i.group.instruction,
                 "battery": (
                     {
-                        "voltage": i.type.battery.voltage,
-                        "current": i.type.battery.current,
-                        "capacity": i.type.battery.capacity,
-                        "charging_type": i.type.battery.charging_type,
+                        "voltage": i.group.battery.voltage,
+                        "current": i.group.battery.current,
+                        "capacity": i.group.battery.capacity,
+                        "charging_type": i.group.battery.charging_type,
                     }
-                    if i.type.battery else None
+                    if i.group.battery else None
                 ),
-                "tags": [t.name for t in i.type.tags],
+                "tags": [t.name for t in i.group.tags],
                 "location": location_helper_func(i.location),
                 "last_seen": i.last_seen_date.isoformat() if i.last_seen_date else None,
                 "last_charge": i.last_charge_date.isoformat() if i.last_charge_date else None,
@@ -186,17 +184,17 @@ def search_locations():
         ])
 
 
-@app.route("/api/item-types/search")
-def search_item_types():
+@app.route("/api/item-group/search")
+def search_item_groups():
     q = request.args.get("q", "").strip()
     if not q:
         return jsonify([])
 
     with SessionLocal() as s:
         results = (
-            s.query(ItemType)
-            .filter(ItemType.name.ilike(f"%{q}%"))
-            .order_by(ItemType.name)
+            s.query(ItemGroup)
+            .filter(ItemGroup.name.ilike(f"%{q}%"))
+            .order_by(ItemGroup.name)
             .limit(10)
             .all()
         )
@@ -299,28 +297,54 @@ def parse_date(value: str) -> date | None:
 def create_item():
     data = request.json or {}
 
-    type_name = (data.get("type") or "").strip()
+    group_name = (data.get("group") or "").strip()
     location_name = (data.get("location") or "").strip()
 
-    if not type_name or not location_name:
+    if not group_name or not location_name:
         return abort(400, "Item Group and Location are required")
 
+    itemID = data.get("id")
+
     with SessionLocal() as s:
-        # Resolve ItemType
-        type_obj = s.query(ItemType).filter(ItemType.name.ilike(type_name)).one_or_none()
-        if not type_obj:
-            return abort(400, f"Item Group '{type_name}' not found")
+        group_obj = (
+            s.query(ItemGroup)
+            .filter(ItemGroup.name.ilike(group_name))
+            .one_or_none()
+        )
+        if not group_obj:
+            return abort(400, f"Item Group '{group_name}' not found")
 
         # Resolve Location
-        location_name = location_name.rsplit('>', 1)[-1].strip()
-        location_obj = s.query(Location).filter(Location.name.ilike(location_name)).one_or_none()
-        if type(location_obj) == type(None): # python moment
+        location_name = location_name.rsplit(">", 1)[-1].strip()
+        location_obj = (
+            s.query(Location)
+            .filter(Location.name.ilike(location_name))
+            .one_or_none()
+        )
+        if location_obj is None:
             return abort(400, f"Location '{location_name}' not found")
 
+        if itemID is not None:
+            # Updating existing item
+            item = s.query(Item).get(itemID)
+            if not item:
+                return abort(404, f"Item with id {itemID} not found")
+
+            item.group_id = group_obj.id
+            item.location_id = location_obj.id
+            item.last_seen_date = parse_date(data.get("last_seen_date"))
+            item.last_charge_date = parse_date(data.get("last_charge_date"))
+            item.has_dedicated_cable = bool(data.get("has_dedicated_cable"))
+            item.acquired_date = parse_date(data.get("acquired_date"))
+            item.bought_place = (data.get("bought_place") or "").strip() or None
+            item.price = data.get("price")
+
+            s.commit()
+            return {"id": item.id}, 200
 
         # Create Item
         item = Item(
-            type_id=type_obj.id,
+            group_id=group_obj.id,
             location_id=location_obj.id,
             last_seen_date=parse_date(data.get("last_seen_date")),
             last_charge_date=parse_date(data.get("last_charge_date")),
@@ -335,13 +359,15 @@ def create_item():
 
         return {"id": item.id}, 201
 
-@app.route("/api/item-types", methods=["POST"])
-def create_item_type():
+
+
+@app.route("/api/item-group", methods=["POST"])
+def create_item_group():
     data = request.json or {}
 
     name = (data.get("name") or "").strip()
     if not name:
-        return abort(400, "Item type name is required")
+        return abort(400, "Item group name is required")
 
     tags_payload = data.get("tags", [])
 
@@ -349,8 +375,20 @@ def create_item_type():
     current = data.get("current")
     capacity = data.get("capacity")
     charging_type = data.get("charging_type")
+    item_group_id = data.get("id")
 
     with SessionLocal() as s:
+        # ---------------------------------
+        # Load existing ItemGroup (update mode)
+        # ---------------------------------
+        item_group = None
+        if item_group_id is not None:
+            item_group = (
+                s.query(ItemGroup)
+                .filter_by(id=item_group_id)
+                .one_or_none()
+            )
+
         # ---------------------------------
         # Battery: create ONLY if not all null
         # ---------------------------------
@@ -375,10 +413,10 @@ def create_item_type():
                     charging_type=charging_type,
                 )
                 s.add(battery)
-                s.flush()  # ensure battery.id exists
+                s.flush()
 
         # ---------------------------------
-        # Tags: create new
+        # Tags: get or create (GLOBAL tags)
         # ---------------------------------
         tags: list[Tag] = []
 
@@ -396,26 +434,37 @@ def create_item_type():
             if tag is None:
                 tag = Tag(name=tag_name)
                 s.add(tag)
-                s.flush()  # get id
+                s.flush()
 
             tags.append(tag)
 
-        for tag in tags:
-            print(tag.name)
         # ---------------------------------
-        # Create ItemType (unique name enforced by DB)
+        # UPDATE existing ItemGroup
         # ---------------------------------
-        item_type = ItemType(
+        if item_group is not None:
+            item_group.name = name
+            item_group.instruction = data.get("instruction")
+            item_group.battery = battery
+            item_group.tags = tags  # replace associations
+
+            s.commit()
+            return {"id": item_group.id, "updated": True}, 200
+
+        # ---------------------------------
+        # CREATE new ItemGroup
+        # ---------------------------------
+        item_group = ItemGroup(
             name=name,
             instruction=data.get("instruction"),
             battery=battery,
-            tags=tags, # link tag id to item type
+            tags=tags,
         )
 
-        s.add(item_type)
+        s.add(item_group)
         s.commit()
 
-        return {"id": item_type.id}, 201
+        return {"id": item_group.id, "created": True}, 201
+
 
 
 
