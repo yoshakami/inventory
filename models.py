@@ -97,6 +97,8 @@ class Item(Base):
     has_dedicated_cable: Mapped[Optional[bool]]
     acquired_date: Mapped[Optional[datetime.date]]
     bought_place: Mapped[Optional[str]]
+    variant: Mapped[Optional[str]]
+    color: Mapped[Optional[str]]
     price: Mapped[Optional[float]]
 
     group_id: Mapped[int] = mapped_column(ForeignKey("item_group.id"))

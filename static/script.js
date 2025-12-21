@@ -110,6 +110,12 @@ async function handleAutocompleteSelect({ input, item }) {
     case "groupID":
       url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
       break
+    case "color":
+      url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
+      break
+    case "variant":
+      url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
+      break
   }
 
   if (url) {
@@ -301,6 +307,8 @@ function loadItem(item) {
   hasDedicatedCable.checked = !!item.has_cable
   boughtPlace.value = item.bought_place || ""
   price.value = item.price ?? ""
+  variant.value = item.variant || ""
+  color.value = item.color || ""
 }
 function loadItemForEdit(item) {
   loadItemGroup(item)
@@ -348,6 +356,8 @@ function renderResults(items) {
 
         ${isoLabel("Location", item.location)}
         ${isoLabel("Bought at", item.bought_place)}
+        ${isoLabel("Color", item.color)}
+        ${isoLabel("Variant", item.variant)}
         ${isoLabel("Price", item.price ? `€${item.price}` : null)}
 
         ${isoLabel("Acquired", item.acquired)}
@@ -419,6 +429,8 @@ lastSeenDate = document.querySelector("#lastSeenDate")
 itemGroup = document.querySelector("#itemGroup")
 itemID = document.querySelector("#itemID")
 add_item_button = document.querySelector("#addItemButton")
+color = document.querySelector("#color")
+variant = document.querySelector("#variant")
 
 
 addItemButton.addEventListener("click", async () => {
@@ -427,11 +439,12 @@ addItemButton.addEventListener("click", async () => {
     group: itemGroup.value,
     location: locationInput.value,
 
+    color: color.value || null,
+    variant: variant.value || null,
     last_seen_date: lastSeenDate.value || null,
     last_charge_date: lastChargeDate.value || null,
     acquired_date: acquiredDate.value || null,
-
-    has_dedicated_cable: hasDedicatedCable.checked,
+    has_dedicated_cable: Boolean(hasDedicatedCable.value),
     bought_place: boughtPlace.value || null,
     price: price.value ? Number(price.value) : null,
   }

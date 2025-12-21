@@ -11,6 +11,9 @@ from flask import Flask, jsonify, request, render_template, send_from_directory
 app = Flask(__name__)
 Base.metadata.create_all(engine)
 
+# @overwrite Flask function
+def abort(resp_status, message):  # this one sends JSON instead of HTML
+    return {"error": message}, resp_status
 
 def is_autocomplete() -> bool:
     return request.args.get("autocomplete", "").lower() in ("1", "true", "yes")
@@ -32,10 +35,6 @@ def autocomplete(items, label_fn, limit=10):
         {"id": getattr(i, "id", label_fn(i)), "label": label_fn(i)}
         for i in list(seen.values())[:limit]
     ])
-
-
-def abort(resp_status, message):  # this one sends JSON instead of HTML
-    return {"error": message}, resp_status
 
 
 @app.route("/")
@@ -96,7 +95,8 @@ def item_to_dict(i: Item):
     return {
         "id": i.id, "group": i.group.name, "instruction": i.group.instruction, "battery": battery_to_dict(i.group.battery),
         "tags": [t.name for t in i.group.tags], "location": location_helper_func(i.location), "last_seen": iso(i.last_seen_date),
-        "last_charge": iso(i.last_charge_date), "acquired": iso(i.acquired_date), "has_cable": i.has_dedicated_cable, "bought_place": i.bought_place, "price": i.price, }
+        "last_charge": iso(i.last_charge_date), "acquired": iso(i.acquired_date), "has_cable": i.has_dedicated_cable, "bought_place": i.bought_place, "price": i.price,
+        "color": i.color, "variant": i.variant, }
 
 
 @app.route("/api/items/tag")
@@ -120,13 +120,16 @@ def search_items_by_tag():
 def search_items_by_location():
     q = normalize(request.args.get("q", "").rsplit(">", 1)[-1])
     with SessionLocal() as s:
+        if is_autocomplete():
+            items = s.query(Location).all()
+            filtered = [i for i in items if q in normalize(
+                location_helper_func(i))]
+            return autocomplete(
+                [i for i in filtered],
+                location_helper_func)
         items = s.query(Item).join(Item.location).all()
         filtered = [i for i in items if q in normalize(
             location_helper_func(i.location))]
-        if is_autocomplete():
-            return autocomplete(
-                [i.location for i in filtered],
-                location_helper_func)
         return jsonify([item_to_dict(i) for i in filtered])
 
 
@@ -134,12 +137,14 @@ def search_items_by_location():
 def search_items_by_group():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
+        if is_autocomplete():
+            items = s.query(ItemGroup).all()
+            filtered = [i for i in items if q in normalize(i.name)]
+            return autocomplete(
+                [i for i in filtered],
+                lambda g: g.name)
         items = s.query(Item).join(Item.group).all()
         filtered = [i for i in items if q in normalize(i.group.name)]
-        if is_autocomplete():
-            return autocomplete(
-                [i.group for i in filtered],
-                lambda g: g.name)
         return jsonify([item_to_dict(i) for i in filtered])
 
 
@@ -158,7 +163,7 @@ def search_items_by_voltage():
         return jsonify([
             item_to_dict(i)
             for i in items
-            if i.group.battery and i.group.battery.voltage == q
+            if i.group.battery and str(q) in i.group.battery.voltage
         ])
 
 
@@ -177,7 +182,7 @@ def search_items_by_current():
         return jsonify([
             item_to_dict(i)
             for i in items
-            if i.group.battery and i.group.battery.current == q
+            if i.group.battery and str(q) in i.group.battery.current
         ])
 
 
@@ -196,7 +201,7 @@ def search_items_by_capacity():
         return jsonify([
             item_to_dict(i)
             for i in items
-            if i.group.battery and i.group.battery.capacity == q
+            if i.group.battery and str(q) in i.group.battery.capacity
         ])
 
 
@@ -229,6 +234,31 @@ def search_items_by_bought_place():
                 lambda i: i.bought_place)
         return jsonify([item_to_dict(i) for i in filtered])
 
+@app.route("/api/items/variant")
+def search_items_by_variant():
+    q = normalize(request.args.get("q", ""))
+    with SessionLocal() as s:
+        items = s.query(Item).all()
+        filtered = [
+            i for i in items if i.variant and q in normalize(i.variant)]
+        if is_autocomplete():
+            return autocomplete(
+                filtered,
+                lambda i: i.variant)
+        return jsonify([item_to_dict(i) for i in filtered])
+
+@app.route("/api/items/color")
+def search_items_by_color():
+    q = normalize(request.args.get("q", ""))
+    with SessionLocal() as s:
+        items = s.query(Item).all()
+        filtered = [
+            i for i in items if i.color and q in normalize(i.color)]
+        if is_autocomplete():
+            return autocomplete(
+                filtered,
+                lambda i: i.color)
+        return jsonify([item_to_dict(i) for i in filtered])
 
 @app.route("/api/items/price")
 def search_items_by_price():
@@ -238,7 +268,7 @@ def search_items_by_price():
         if is_autocomplete():
             prices = sorted({i.price for i in items if i.price is not None})
             return jsonify([{"id": p, "label": str(p)} for p in prices[:10]])
-        return jsonify([item_to_dict(i) for i in items if i.price == q])
+        return jsonify([item_to_dict(i) for i in items if str(q) in str(i.price)])
 
 
 @app.route("/api/items/last-seen")
@@ -250,7 +280,7 @@ def search_items_last_seen():
             dates = sorted(
                 {i.last_seen_date for i in items if i.last_seen_date}, reverse=True)
             return jsonify([{"id": d.isoformat(), "label": d.isoformat()} for d in dates[:10]])
-        return jsonify([item_to_dict(i) for i in items if str(i.last_seen_date) == q])
+        return jsonify([item_to_dict(i) for i in items if q in str(i.last_seen_date)])
 
 
 @app.route("/api/items/last-charge")
@@ -262,7 +292,7 @@ def search_items_last_charge():
             dates = sorted(
                 {i.last_charge_date for i in items if i.last_charge_date}, reverse=True)
             return jsonify([{"id": d.isoformat(), "label": d.isoformat()} for d in dates[:10]])
-        return jsonify([item_to_dict(i) for i in items if str(i.last_charge_date) == q])
+        return jsonify([item_to_dict(i) for i in items if q in str(i.last_charge_date)])
 
 
 @app.route("/api/items/acquired")
@@ -274,7 +304,7 @@ def search_items_acquired():
             dates = sorted(
                 {i.acquired_date for i in items if i.acquired_date}, reverse=True)
             return jsonify([{"id": d.isoformat(), "label": d.isoformat()} for d in dates[:10]])
-        return jsonify([item_to_dict(i) for i in items if str(i.acquired_date) == q])
+        return jsonify([item_to_dict(i) for i in items if q in str(i.acquired_date)])
 
 
 @app.route("/api/items/id")
@@ -292,7 +322,7 @@ def search_item_by_id():
 def search_items_by_group_id():
     q = request.args.get("q", type=int)
     with SessionLocal() as s:
-        items = s.query(Item).filter(Item.group_id == q).all()
+        items = s.query(Item).filter(Item.group_id.ilike(f"%{q}%")).all()
         if is_autocomplete():
             return jsonify([{"id": q, "label": str(q)}])
         return jsonify([item_to_dict(i) for i in items])
@@ -323,15 +353,13 @@ def advanced_search():
             q = q.filter(Item.last_seen_date <= before)
 
         if tag_partial:
-            q = q.filter(
-                func.lower(Tag.name).ilike(f"%{tag_partial}%")
-            )
+            q = q.filter(func.lower(Tag.name).ilike(f"%{tag_partial}%"))
 
         items = q.distinct().all()
         return jsonify([item_to_dict(i) for i in items])
 
 # --------------------
-# CREATE
+# HELPERS FOR CREATE FUNCTIONS
 # --------------------
 
 
@@ -355,15 +383,64 @@ def parse_date(value: str) -> date | None:
         return None
 
 
-ITEM_FIELDS = {
-    "last_seen_date": parse_date, "last_charge_date": parse_date, "has_dedicated_cable": bool, "acquired_date": parse_date, "price": lambda x: x, }
+ITEM_FIELDS = {"last_seen_date": parse_date, "last_charge_date": parse_date, "has_dedicated_cable": bool, "acquired_date": parse_date, "price": lambda x: x }
 
 
 def apply_item_fields(item, data):
     for field, cast in ITEM_FIELDS.items():
         setattr(item, field, cast(data.get(field)))
     item.bought_place = (data.get("bought_place") or "").strip() or None
+    item.color = (data.get("color") or "").strip() or None
+    item.variant = (data.get("variant") or "").strip() or None
 
+
+def get_or_create_battery(s, **fields):
+    if not any(fields.values()):
+        return None
+    battery = s.query(Battery).filter_by(**fields).one_or_none()
+    if battery:
+        return battery
+    battery = Battery(**fields)
+    s.add(battery)
+    s.flush()
+    return battery
+
+
+def get_or_create_tags(s, names):
+    tags = []
+    for name in names:
+        name = (name or "").strip()
+        if not name:
+            continue
+        tag = (s.query(Tag).filter(func.lower(
+            Tag.name) == name.lower()).one_or_none())
+        if not tag:
+            tag = Tag(name=name)
+            s.add(tag)
+            s.flush()
+        tags.append(tag)
+    return tags
+
+# --------------------
+# DELETE
+# --------------------
+
+@app.route("/api/items", methods=["DELETE"])
+def delete_item():
+    item_id = request.args.get("id", type=int)
+    if not item_id:
+        return abort(400, "Item id is required")
+    with SessionLocal() as s:
+        item = s.get(Item, item_id)
+        if not item:
+            return abort(404, "Item not found")
+        s.delete(item)
+        s.commit()
+        return {"deleted": True, "id": item_id}, 200
+
+# --------------------
+# CREATE AND UPDATE
+# --------------------
 
 @app.route("/api/items", methods=["POST"])
 def create_item():
@@ -411,49 +488,6 @@ def create_location():
         s.add(loc)
         s.commit()
         return {"id": loc.id, "name": loc.name}, 201
-
-
-def get_or_create_battery(s, **fields):
-    if not any(fields.values()):
-        return None
-    battery = s.query(Battery).filter_by(**fields).one_or_none()
-    if battery:
-        return battery
-    battery = Battery(**fields)
-    s.add(battery)
-    s.flush()
-    return battery
-
-
-def get_or_create_tags(s, names):
-    tags = []
-    for name in names:
-        name = (name or "").strip()
-        if not name:
-            continue
-        tag = (s.query(Tag).filter(func.lower(
-            Tag.name) == name.lower()).one_or_none())
-        if not tag:
-            tag = Tag(name=name)
-            s.add(tag)
-            s.flush()
-        tags.append(tag)
-    return tags
-
-
-@app.route("/api/items", methods=["DELETE"])
-def delete_item():
-    item_id = request.args.get("id", type=int)
-    if not item_id:
-        return abort(400, "Item id is required")
-    with SessionLocal() as s:
-        item = s.get(Item, item_id)
-        if not item:
-            return abort(404, "Item not found")
-        s.delete(item)
-        s.commit()
-        return {"deleted": True, "id": item_id}, 200
-
 
 @app.route("/api/item-group", methods=["POST"])
 def create_item_group():

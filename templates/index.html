@@ -100,7 +100,22 @@
           </div>
           <div>
             <label>Item Group</label>
-            <input id="itemGroup" class="itemGroup" placeholder="Required: Item Name" />
+            <input id="itemGroup" class="itemGroup" placeholder="Required: a group must be created before adding any item" />
+            <ul class="autocomplete-list" hidden></ul>
+          </div>
+          <div>
+            <label>Location</label>
+            <input id="location" class="location" placeholder="Required" />
+            <ul class="autocomplete-list" hidden></ul>
+          </div>
+          <div>
+            <label>Price</label>
+            <input id="price" placeholder="Optional" />
+            <ul class="autocomplete-list" hidden></ul>
+          </div>
+          <div>
+            <label>Bought Place</label>
+            <input id="boughtPlace" placeholder="Optional" />
             <ul class="autocomplete-list" hidden></ul>
           </div>
           <div>
@@ -123,18 +138,13 @@
             <input id="hasDedicatedCable" placeholder="leave blank for no" />
           </div>
           <div>
-            <label>Price</label>
-            <input id="price" placeholder="Optional" />
+            <label>Color</label>
+            <input id="color" placeholder="Optional" />
             <ul class="autocomplete-list" hidden></ul>
           </div>
           <div>
-            <label>Bought Place</label>
-            <input id="boughtPlace" placeholder="Optional" />
-            <ul class="autocomplete-list" hidden></ul>
-          </div>
-          <div>
-            <label>Location</label>
-            <input id="location" class="location" placeholder="Required" />
+            <label>Variant</label>
+            <input id="variant" placeholder="Required" />
             <ul class="autocomplete-list" hidden></ul>
           </div>
           <button id="addItemButton">Save</button>
