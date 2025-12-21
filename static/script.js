@@ -111,10 +111,13 @@ async function handleAutocompleteSelect({ input, item }) {
       url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
       break
     case "color":
-      url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
+      url = `/api/items/color?q=${encodeURIComponent(item.id)}`
       break
     case "variant":
-      url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
+      url = `/api/items/variant?q=${encodeURIComponent(item.id)}`
+      break
+    case "status":
+      url = `/api/items/status?q=${encodeURIComponent(item.id)}`
       break
   }
 
@@ -309,6 +312,7 @@ function loadItem(item) {
   price.value = item.price ?? ""
   variant.value = item.variant || ""
   color.value = item.color || ""
+  statusID.value = item.status || ""
 }
 function loadItemForEdit(item) {
   loadItemGroup(item)
@@ -355,16 +359,15 @@ function renderResults(items) {
         ` : ""}
 
         ${isoLabel("Location", item.location)}
-        ${isoLabel("Bought at", item.bought_place)}
         ${isoLabel("Color", item.color)}
         ${isoLabel("Variant", item.variant)}
+        ${isoLabel("Bought at", item.bought_place)}
         ${isoLabel("Price", item.price ? `€${item.price}` : null)}
-
-        ${isoLabel("Acquired", item.acquired)}
         ${isoLabel("Last seen", item.last_seen)}
+        ${isoLabel("Acquired", item.acquired)}
         ${isoLabel("Last charged", item.last_charge)}
-
         ${boolLabel("🔌 Dedicated cable included", item.has_cable)}
+        ${isoLabel("Status", item.status)}
       </div>
     `
 
@@ -431,7 +434,7 @@ itemID = document.querySelector("#itemID")
 add_item_button = document.querySelector("#addItemButton")
 color = document.querySelector("#color")
 variant = document.querySelector("#variant")
-
+statusID = document.querySelector("#status")
 
 addItemButton.addEventListener("click", async () => {
   const payload = {
@@ -439,14 +442,15 @@ addItemButton.addEventListener("click", async () => {
     group: itemGroup.value,
     location: locationInput.value,
 
-    color: color.value || null,
-    variant: variant.value || null,
     last_seen_date: lastSeenDate.value || null,
     last_charge_date: lastChargeDate.value || null,
     acquired_date: acquiredDate.value || null,
     has_dedicated_cable: Boolean(hasDedicatedCable.value),
     bought_place: boughtPlace.value || null,
     price: price.value ? Number(price.value) : null,
+    color: color.value || null,
+    variant: variant.value || null,
+    status: statusID.value || null,
   }
 
   const resp = await fetch("/api/items", {

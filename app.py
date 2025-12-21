@@ -96,7 +96,7 @@ def item_to_dict(i: Item):
         "id": i.id, "group": i.group.name, "instruction": i.group.instruction, "battery": battery_to_dict(i.group.battery),
         "tags": [t.name for t in i.group.tags], "location": location_helper_func(i.location), "last_seen": iso(i.last_seen_date),
         "last_charge": iso(i.last_charge_date), "acquired": iso(i.acquired_date), "has_cable": i.has_dedicated_cable, "bought_place": i.bought_place, "price": i.price,
-        "color": i.color, "variant": i.variant, }
+        "color": i.color, "variant": i.variant, "status": i.status, }
 
 
 @app.route("/api/items/tag")
@@ -260,6 +260,19 @@ def search_items_by_color():
                 lambda i: i.color)
         return jsonify([item_to_dict(i) for i in filtered])
 
+@app.route("/api/items/status")
+def search_items_by_status():
+    q = normalize(request.args.get("q", ""))
+    with SessionLocal() as s:
+        items = s.query(Item).all()
+        filtered = [
+            i for i in items if i.status and q in normalize(i.status)]
+        if is_autocomplete():
+            return autocomplete(
+                filtered,
+                lambda i: i.status)
+        return jsonify([item_to_dict(i) for i in filtered])
+    
 @app.route("/api/items/price")
 def search_items_by_price():
     q = request.args.get("q", type=float)
@@ -391,6 +404,7 @@ def apply_item_fields(item, data):
         setattr(item, field, cast(data.get(field)))
     item.bought_place = (data.get("bought_place") or "").strip() or None
     item.color = (data.get("color") or "").strip() or None
+    item.status = (data.get("status") or "").strip() or None
     item.variant = (data.get("variant") or "").strip() or None
 
 

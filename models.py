@@ -103,6 +103,7 @@ class Item(Base):
     bought_place: Mapped[Optional[str]] = mapped_column(String(100))
     variant: Mapped[Optional[str]] = mapped_column(String(100))
     color: Mapped[Optional[str]] = mapped_column(String(50))
+    status: Mapped[Optional[str]] = mapped_column(String(50))
     price: Mapped[Optional[float]] = mapped_column(Float)
 
 
