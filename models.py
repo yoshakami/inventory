@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, List
 import datetime
+from sqlalchemy import String, Text, Float, Boolean, Date
 
 from sqlalchemy import (
     ForeignKey,
@@ -35,17 +36,18 @@ class Tag(Base):
     __tablename__ = "tag"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(unique=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
 
 
 class Battery(Base):
     __tablename__ = "battery"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    voltage: Mapped[float]
-    current: Mapped[float]
-    capacity: Mapped[float]
-    charging_type: Mapped[str]
+    voltage: Mapped[Optional[float]] = mapped_column(Float)
+    current: Mapped[Optional[float]] = mapped_column(Float)
+    capacity: Mapped[Optional[float]] = mapped_column(Float)
+    charging_type: Mapped[Optional[str]] = mapped_column(String(50))
+
 
 
 class ItemGroup(Base):
@@ -56,8 +58,8 @@ class ItemGroup(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
-    instruction: Mapped[Optional[str]]
+    name: Mapped[str] = mapped_column(String(100))
+    instruction: Mapped[Optional[str]] = mapped_column(Text)
 
     battery_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("battery.id"),
@@ -75,8 +77,9 @@ class Location(Base):
     __table_args__ = (
         UniqueConstraint("name", name="uq_location_name"),
     )
+
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
+    name: Mapped[str] = mapped_column(String(100))
 
     parent_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("location.id"),
@@ -92,14 +95,16 @@ class Item(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    last_seen_date: Mapped[Optional[datetime.date]]
-    last_charge_date: Mapped[Optional[datetime.date]]
-    has_dedicated_cable: Mapped[Optional[bool]]
-    acquired_date: Mapped[Optional[datetime.date]]
-    bought_place: Mapped[Optional[str]]
-    variant: Mapped[Optional[str]]
-    color: Mapped[Optional[str]]
-    price: Mapped[Optional[float]]
+    last_seen_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    last_charge_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    has_dedicated_cable: Mapped[Optional[bool]] = mapped_column(Boolean)
+    acquired_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+
+    bought_place: Mapped[Optional[str]] = mapped_column(String(100))
+    variant: Mapped[Optional[str]] = mapped_column(String(100))
+    color: Mapped[Optional[str]] = mapped_column(String(50))
+    price: Mapped[Optional[float]] = mapped_column(Float)
+
 
     group_id: Mapped[int] = mapped_column(ForeignKey("item_group.id"))
     group = relationship("ItemGroup", back_populates="items")
