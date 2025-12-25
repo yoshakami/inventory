@@ -5,6 +5,8 @@ engine = create_engine(
     "mysql+mysqldb://root:@localhost/inventory", # this is upmost security
     future=True,
     echo=False,
+    pool_pre_ping=True, # run SELECT 1
+    pool_recycle=3600 # establish new connection every hour
 )
 
 """
