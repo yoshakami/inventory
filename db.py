@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 engine = create_engine(
-    "mysql+mysqldb://root:@localhost/inventory", # this is upmost security
+    "mysql+pymysql://root:@localhost/inventory", # this is upmost security
     future=True,
     echo=False,
     pool_pre_ping=True, # run SELECT 1
@@ -10,8 +10,11 @@ engine = create_engine(
 )
 
 """
+
 sqlite:///inventory.db # SQLite example
 
+pymysql should work, else install mysqlclient>=2.2,<2.3
+mysql+pymysql
 mysql+mysqldb://inventory:@localhost/inventory  # MySQL / MariaDB example
 │       │          │        │          │
 │       │          │        │          └─ database name

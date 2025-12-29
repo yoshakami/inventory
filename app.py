@@ -9,6 +9,7 @@ from models import (Base, Item, ItemGroup, Tag,
 # do not import return abort!!!!!!!
 from flask import Flask, jsonify, request, render_template, send_from_directory
 app = Flask(__name__)
+app.config['APPLICATION_ROOT'] = '/inventory'
 Base.metadata.create_all(engine)
 
 # @overwrite Flask function
