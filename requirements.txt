@@ -1,2 +1,3 @@
-flask
-sqlalchemy
+flask>=3.0,<4
+sqlalchemy>=2.0,<2.1
+mysqlclient>=2.2,<2.3
