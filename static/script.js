@@ -1,5 +1,21 @@
 console.log("hello!!!!!!!!!!!!!!!")
 
+const API_BASE = "/inventory"
+
+async function deleteItem(id, cardEl) {
+  const res = await fetch(`${API_BASE}/api/items?id=${id}`, {
+    method: "DELETE",
+  })
+
+  if (!res.ok) {
+    notify("Failed to delete item", "error")
+    return
+  }
+
+  cardEl.remove()
+  notify("Item deleted", "success")
+}
+
 let AUTOCOMPLETE_ENABLED =
   localStorage.getItem("autocomplete") !== "false";
 
@@ -122,7 +138,7 @@ async function handleAutocompleteSelect({ input, item }) {
   }
 
   if (url) {
-    const res = await fetch(url)
+    const res = await fetch(API_BASE + url)
     const data = await res.json()
     renderResults(data)
   }
@@ -193,7 +209,7 @@ function autoComplete({ selector, api, onSelect }) {
       const q = e.target.value.trim()
       if (!q) return close()
 
-      const res = await fetch(`${api}?&autocomplete=true&q=${encodeURIComponent(q)}`)
+      const res = await fetch(`${API_BASE}${api}?&autocomplete=true&q=${encodeURIComponent(q)}`)
       render(await res.json())
     })
 
@@ -268,19 +284,6 @@ function renderBattery(b) {
     : ""
 }
 
-async function deleteItem(id, cardEl) {
-  const res = await fetch(`/api/items?id=${id}`, {
-    method: "DELETE",
-  })
-
-  if (!res.ok) {
-    notify("Failed to delete item", "error")
-    return
-  }
-
-  cardEl.remove()
-  notify("Item deleted", "success")
-}
 
 function loadItemGroup(group) {
   groupID.value = group.group_id || group.id
@@ -394,7 +397,7 @@ addLocationButton.addEventListener("click", async () => {
 
   if (!name) return
 
-  const resp = await fetch("/api/locations", {
+  const resp = await fetch(`${API_BASE}/api/locations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -453,7 +456,7 @@ addItemButton.addEventListener("click", async () => {
     status: statusID.value || null,
   }
 
-  const resp = await fetch("/api/items", {
+  const resp = await fetch(`${API_BASE}/api/items`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -530,7 +533,7 @@ addItemGroupButton.addEventListener("click", async () => {
 
   if (!payload.name) return
 
-  const resp = await fetch("/api/item-group", {
+  const resp = await fetch(`${API_BASE}/api/item-group`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -643,7 +646,7 @@ document.getElementById("runAdvancedSearch").addEventListener("click", async () 
   if (dateBefore.value) params.set("before", dateBefore.value);
   if (tagPartial.value) params.set("tag_partial", tagPartial.value);
 
-  const res = await fetch(`/api/items?${params.toString()}`);
+  const res = await fetch(`${API_BASE}/api/items?${params.toString()}`);
   const data = await res.json();
   renderResults(data);
 });

@@ -9,7 +9,7 @@ from models import (Base, Item, ItemGroup, Tag,
 # do not import return abort!!!!!!!
 from flask import Flask, jsonify, request, render_template, send_from_directory
 app = Flask(__name__)
-app.config['APPLICATION_ROOT'] = '/inventory'
+app.config['APPLICATION_ROOT'] = '/inventory' # there's another const in the js
 Base.metadata.create_all(engine)
 
 # @overwrite Flask function
@@ -42,6 +42,9 @@ def autocomplete(items, label_fn, limit=10):
 def index():
     return render_template("index.html")
 
+@app.route("/inventory")
+def index2():
+    return render_template("index.html")
 
 @app.route("/favicon.ico")
 def favicon():
