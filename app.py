@@ -1,16 +1,32 @@
 import os
+import json
 import unicodedata
 from sqlalchemy import select, func
 from db import engine, SessionLocal
 from datetime import date, datetime
 from sqlalchemy.orm import joinedload
+from flask_httpauth import HTTPDigestAuth
 from models import (Base, Item, ItemGroup, Tag,
                     Location, Battery, tag_association,)
 # do not import return abort!!!!!!!
 from flask import Flask, jsonify, request, render_template, send_from_directory
 app = Flask(__name__)
-app.config['APPLICATION_ROOT'] = '/inventory' # there's another const in the js
+auth = HTTPDigestAuth()
+#app.config['APPLICATION_ROOT'] = '/inventory' # there's another const in the js
 Base.metadata.create_all(engine)
+
+users = {} 
+if os.path.exists('users.json'):
+    with open('users.json', 'r') as file:
+        users = json.load(file)
+
+app.config['SECRET_KEY'] = users.get('server')
+
+@auth.get_password
+def get_pw(username):
+    if username in users:
+        return users.get(username)
+    return None
 
 # @overwrite Flask function
 def abort(resp_status, message):  # this one sends JSON instead of HTML
@@ -39,14 +55,17 @@ def autocomplete(items, label_fn, limit=10):
 
 
 @app.route("/")
+@auth.login_required
 def index():
     return render_template("index.html")
 
 @app.route("/inventory")
+@auth.login_required
 def index2():
     return render_template("index.html")
 
 @app.route("/favicon.ico")
+@auth.login_required
 def favicon():
     return send_from_directory(
         os.path.join(app.root_path, "static"), "Hatsune-Miku.ico", mimetype="image/vnd.microsoft.icon",)
@@ -104,6 +123,7 @@ def item_to_dict(i: Item):
 
 
 @app.route("/api/items/tag")
+@auth.login_required
 def search_items_by_tag():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
@@ -121,6 +141,7 @@ def search_items_by_tag():
 
 
 @app.route("/api/items/location")
+@auth.login_required
 def search_items_by_location():
     q = normalize(request.args.get("q", "").rsplit(">", 1)[-1])
     with SessionLocal() as s:
@@ -138,6 +159,7 @@ def search_items_by_location():
 
 
 @app.route("/api/items/group")
+@auth.login_required
 def search_items_by_group():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
@@ -153,6 +175,7 @@ def search_items_by_group():
 
 
 @app.route("/api/items/voltage")
+@auth.login_required
 def search_items_by_voltage():
     q = request.args.get("q", type=float)
     with SessionLocal() as s:
@@ -172,6 +195,7 @@ def search_items_by_voltage():
 
 
 @app.route("/api/items/current")
+@auth.login_required
 def search_items_by_current():
     q = request.args.get("q", type=float)
     with SessionLocal() as s:
@@ -191,6 +215,7 @@ def search_items_by_current():
 
 
 @app.route("/api/items/capacity")
+@auth.login_required
 def search_items_by_capacity():
     q = request.args.get("q", type=float)
     with SessionLocal() as s:
@@ -210,6 +235,7 @@ def search_items_by_capacity():
 
 
 @app.route("/api/items/charging-type")
+@auth.login_required
 def search_items_by_charging_type():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
@@ -226,6 +252,7 @@ def search_items_by_charging_type():
 
 
 @app.route("/api/items/bought-place")
+@auth.login_required
 def search_items_by_bought_place():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
@@ -239,6 +266,7 @@ def search_items_by_bought_place():
         return jsonify([item_to_dict(i) for i in filtered])
 
 @app.route("/api/items/variant")
+@auth.login_required
 def search_items_by_variant():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
@@ -252,6 +280,7 @@ def search_items_by_variant():
         return jsonify([item_to_dict(i) for i in filtered])
 
 @app.route("/api/items/color")
+@auth.login_required
 def search_items_by_color():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
@@ -265,6 +294,7 @@ def search_items_by_color():
         return jsonify([item_to_dict(i) for i in filtered])
 
 @app.route("/api/items/status")
+@auth.login_required
 def search_items_by_status():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
@@ -278,6 +308,7 @@ def search_items_by_status():
         return jsonify([item_to_dict(i) for i in filtered])
     
 @app.route("/api/items/price")
+@auth.login_required
 def search_items_by_price():
     q = request.args.get("q", type=float)
     with SessionLocal() as s:
@@ -289,6 +320,7 @@ def search_items_by_price():
 
 
 @app.route("/api/items/last-seen")
+@auth.login_required
 def search_items_last_seen():
     q = request.args.get("q")
     with SessionLocal() as s:
@@ -301,6 +333,7 @@ def search_items_last_seen():
 
 
 @app.route("/api/items/last-charge")
+@auth.login_required
 def search_items_last_charge():
     q = request.args.get("q")
     with SessionLocal() as s:
@@ -313,6 +346,7 @@ def search_items_last_charge():
 
 
 @app.route("/api/items/acquired")
+@auth.login_required
 def search_items_acquired():
     q = request.args.get("q")
     with SessionLocal() as s:
@@ -325,6 +359,7 @@ def search_items_acquired():
 
 
 @app.route("/api/items/id")
+@auth.login_required
 def search_item_by_id():
     q = request.args.get("q", type=int)
     with SessionLocal() as s:
@@ -336,6 +371,7 @@ def search_item_by_id():
 
 
 @app.route("/api/items/group-id")
+@auth.login_required
 def search_items_by_group_id():
     q = request.args.get("q", type=int)
     with SessionLocal() as s:
@@ -346,6 +382,7 @@ def search_items_by_group_id():
 
 
 @app.route("/api/items")
+@auth.login_required
 def advanced_search():
     price_min = request.args.get("price_min", type=float)
     price_max = request.args.get("price_max", type=float)
@@ -444,6 +481,7 @@ def get_or_create_tags(s, names):
 # --------------------
 
 @app.route("/api/items", methods=["DELETE"])
+@auth.login_required
 def delete_item():
     item_id = request.args.get("id", type=int)
     if not item_id:
@@ -461,6 +499,7 @@ def delete_item():
 # --------------------
 
 @app.route("/api/items", methods=["POST"])
+@auth.login_required
 def create_item():
     data = request.json or {}
     group_name = (data.get("group") or "").strip()
@@ -489,6 +528,7 @@ def create_item():
 
 
 @app.route("/api/locations", methods=["POST"])
+@auth.login_required
 def create_location():
     data = request.json or {}
     name = (data.get("name") or "").rsplit(">", 1)[-1].strip()
@@ -508,6 +548,7 @@ def create_location():
         return {"id": loc.id, "name": loc.name}, 201
 
 @app.route("/api/item-group", methods=["POST"])
+@auth.login_required
 def create_item_group():
     data = request.json or {}
     name = (data.get("name") or "").strip()

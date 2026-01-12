@@ -1,6 +1,6 @@
 console.log("hello!!!!!!!!!!!!!!!")
 
-const API_BASE = "/inventory"
+const API_BASE = "" // put this for subfolder =>  "/inventory"
 
 async function deleteItem(id, cardEl) {
   const res = await fetch(`${API_BASE}/api/items?id=${id}`, {
