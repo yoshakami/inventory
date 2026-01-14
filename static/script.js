@@ -2,9 +2,17 @@ console.log("hello!!!!!!!!!!!!!!!")
 
 const API_BASE = "" // put this for subfolder =>  "/inventory"
 
+let YOSH_ENABLED =
+  localStorage.getItem("yosh") !== "false";
+
+let global_param = {"yosh": YOSH_ENABLED}
+
 async function deleteItem(id, cardEl) {
   const res = await fetch(`${API_BASE}/api/items?id=${id}`, {
     method: "DELETE",
+    headers: {
+      "X-Yosh": YOSH_ENABLED,
+    }
   })
 
   if (!res.ok) {
@@ -19,6 +27,7 @@ async function deleteItem(id, cardEl) {
 let AUTOCOMPLETE_ENABLED =
   localStorage.getItem("autocomplete") !== "false";
 
+
 const toggleBtn = document.getElementById("toggleAutocomplete");
 const searchSection = document.querySelector(".pane.left .search");
 function updateToggleUI() {
@@ -32,7 +41,6 @@ function updateToggleUI() {
     searchSection.style.display = "none"
     toggleBtn.style.background = "red"
     toggleBtn.style.borderColor = "red"
-
   }
 }
 
@@ -42,7 +50,26 @@ toggleBtn.addEventListener("click", () => {
   updateToggleUI();
 });
 
+const tabYosh = document.querySelector("#tab-yosh")
+
+function updateYoshUI() {
+  if (YOSH_ENABLED) {
+    tabYosh.style.background = "green"
+    tabYosh.style.borderColor = "green"
+  } else {
+    tabYosh.style.background = "red"
+    tabYosh.style.borderColor = "red"
+  }
+}
+updateYoshUI();
 updateToggleUI();
+
+tabYosh.addEventListener("click", () => {
+  YOSH_ENABLED = !YOSH_ENABLED;
+  localStorage.setItem("yosh", YOSH_ENABLED);
+  updateYoshUI();
+})
+
 
 const advBtn = document.getElementById("advancedSearchBtn");
 const advPanel = document.querySelector(".filters");
@@ -138,7 +165,11 @@ async function handleAutocompleteSelect({ input, item }) {
   }
 
   if (url) {
-    const res = await fetch(API_BASE + url)
+    const res = await fetch(API_BASE + url, {
+      headers: {
+      "X-Yosh": YOSH_ENABLED,
+    }
+    })
     const data = await res.json()
     renderResults(data)
   }
@@ -209,7 +240,12 @@ function autoComplete({ selector, api, onSelect }) {
       const q = e.target.value.trim()
       if (!q) return close()
 
-      const res = await fetch(`${API_BASE}${api}?&autocomplete=true&q=${encodeURIComponent(q)}`)
+      const res = await fetch(`${API_BASE}${api}?&autocomplete=true&q=${encodeURIComponent(q)}`,
+      {
+        headers: {
+      "X-Yosh": YOSH_ENABLED,
+    }
+      })
       render(await res.json())
     })
 
@@ -401,6 +437,7 @@ addLocationButton.addEventListener("click", async () => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "X-Yosh": YOSH_ENABLED,
     },
     body: JSON.stringify({
       name,
@@ -458,7 +495,9 @@ addItemButton.addEventListener("click", async () => {
 
   const resp = await fetch(`${API_BASE}/api/items`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json",
+      "X-Yosh": YOSH_ENABLED,
+    },
     body: JSON.stringify(payload),
   })
 
@@ -507,6 +546,7 @@ advBtn.addEventListener("click", () => {
   layout.classList.add("show-filters")
 });
 
+
 tabLeft.addEventListener("click", () => {
   layout.classList.remove("show-right")
   layout.classList.remove("show-filters")
@@ -535,7 +575,9 @@ addItemGroupButton.addEventListener("click", async () => {
 
   const resp = await fetch(`${API_BASE}/api/item-group`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json",
+      "X-Yosh": YOSH_ENABLED,
+     },
     body: JSON.stringify(payload),
   })
 
@@ -646,7 +688,11 @@ document.getElementById("runAdvancedSearch").addEventListener("click", async () 
   if (dateBefore.value) params.set("before", dateBefore.value);
   if (tagPartial.value) params.set("tag_partial", tagPartial.value);
 
-  const res = await fetch(`${API_BASE}/api/items?${params.toString()}`);
+  const res = await fetch(`${API_BASE}/api/items?${params.toString()}`, {
+    headers: {
+      "X-Yosh": YOSH_ENABLED,
+    }
+  });
   const data = await res.json();
   renderResults(data);
 });

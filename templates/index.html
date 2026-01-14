@@ -13,10 +13,12 @@
   <div id="notification" class="notification" hidden></div>
   <!-- Mobile header / pane switcher -->
   <header class="topbar">
-    <h1>Items</h1>
     <div class="tabs">
+      {% if user == "Yosh" %}
+      <button id="tab-yosh">Yosh</button>
+      {% endif %}
       <button id="tab-left">Edit / Add</button>
-      <button id="tab-right">Results</button>
+      <button id="tab-right">View</button>
       <button id="toggleAutocomplete">Search: ON</button>
       <button id="advancedSearchBtn">Filters</button>
     </div>
