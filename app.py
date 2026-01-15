@@ -781,22 +781,44 @@ def create_item():
 def create_location():
     if not am_i_admin():
         return abort(400, "You're not admin")
+
     data = request.json or {}
+
     name = (data.get("name") or "").rsplit(">", 1)[-1].strip()
-    parent_name = data.get("parent")
+    parent_name = (
+        (data.get("parent") or "").rsplit(">", 1)[-1].strip()
+        if data.get("parent") else None
+    )
+
     if not name:
         return abort(400, "Location name cannot be empty")
+
     with SessionLocal() as s:
-        parent = (s.query(Location).filter(Location.name.ilike(parent_name)).one_or_none()
-                  if parent_name else None)
-        existing = (s.query(Location).filter(Location.name.ilike(
-            name), Location.parent_id == (parent.id if parent else None)).one_or_none())
+        parent = (
+            s.query(Location)
+             .filter(Location.name.ilike(parent_name))
+             .one_or_none()
+            if parent_name else None
+        )
+
+        existing = (
+            s.query(Location)
+             .filter(
+                 Location.name.ilike(name),
+                 Location.parent_id == (parent.id if parent else None),
+             )
+             .one_or_none()
+        )
+
         if existing:
             return {"id": existing.id, "name": existing.name}, 200
+
         loc = Location(name=name, parent=parent)
         s.add(loc)
         s.commit()
+
         return {"id": loc.id, "name": loc.name}, 201
+
 
 @app.route("/api/item-group", methods=["POST"])
 @auth.login_required
