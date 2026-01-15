@@ -138,8 +138,8 @@ async function handleAutocompleteSelect({ input, item }) {
       url = `/api/items/last-seen?q=${encodeURIComponent(item.label)}`
       break
 
-    case "lastChargeDate":
-      url = `/api/items/last-charge?q=${encodeURIComponent(item.label)}`
+    case "lastUseDate":
+      url = `/api/items/last-use?q=${encodeURIComponent(item.label)}`
       break
 
     case "acquiredDate":
@@ -293,7 +293,7 @@ autoComplete({ selector: "#chargingType", api: "/api/items/charging-type", onSel
 autoComplete({ selector: "#boughtPlace", api: "/api/items/bought-place", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#price", api: "/api/items/price", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#lastSeenDate", api: "/api/items/last-seen", onSelect: handleAutocompleteSelect })
-autoComplete({ selector: "#lastChargeDate", api: "/api/items/last-charge", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#lastUseDate", api: "/api/items/last-use", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#acquiredDate", api: "/api/items/acquired", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#itemID", api: "/api/items/id", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#groupID", api: "/api/items/group-id", onSelect: handleAutocompleteSelect })
@@ -343,7 +343,7 @@ function loadItem(item) {
   locationInput.value = item.location
 
   lastSeenDate.value = item.last_seen || ""
-  lastChargeDate.value = item.last_charge || ""
+  lastUseDate.value = item.last_use || ""
   acquiredDate.value = item.acquired || ""
 
   hasDedicatedCable.checked = !!item.has_cable
@@ -404,7 +404,7 @@ function renderResults(items) {
         ${isoLabel("Price", item.price ? `€${item.price}` : null)}
         ${isoLabel("Last seen", item.last_seen)}
         ${isoLabel("Acquired", item.acquired)}
-        ${isoLabel("Last charged", item.last_charge)}
+        ${isoLabel("Last used", item.last_use)}
         ${boolLabel("🔌 Dedicated cable included", item.has_cable)}
         ${isoLabel("Status", item.status)}
       </div>
@@ -467,7 +467,7 @@ boughtPlace = document.querySelector("#boughtPlace")
 price = document.querySelector("#price")
 hasDedicatedCable = document.querySelector("#hasDedicatedCable")
 acquiredDate = document.querySelector("#acquiredDate")
-lastChargeDate = document.querySelector("#lastChargeDate")
+lastUseDate = document.querySelector("#lastUseDate")
 lastSeenDate = document.querySelector("#lastSeenDate")
 itemGroup = document.querySelector("#itemGroup")
 itemID = document.querySelector("#itemID")
@@ -483,7 +483,7 @@ addItemButton.addEventListener("click", async () => {
     location: locationInput.value,
 
     last_seen_date: lastSeenDate.value || null,
-    last_charge_date: lastChargeDate.value || null,
+    last_use_date: lastUseDate.value || null,
     acquired_date: acquiredDate.value || null,
     has_dedicated_cable: Boolean(hasDedicatedCable.value),
     bought_place: boughtPlace.value || null,

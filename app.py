@@ -130,7 +130,7 @@ def item_to_dict(i: Item):
     return {
         "id": i.id, "group": i.group.name, "instruction": i.group.instruction, "battery": battery_to_dict(i.group.battery),
         "tags": [t.name for t in i.group.tags], "location": location_helper_func(i.location), "last_seen": iso(i.last_seen_date),
-        "last_charge": iso(i.last_charge_date), "acquired": iso(i.acquired_date), "has_cable": i.has_dedicated_cable, "bought_place": i.bought_place, "price": i.price,
+        "last_use": iso(i.last_use_date), "acquired": iso(i.acquired_date), "has_cable": i.has_dedicated_cable, "bought_place": i.bought_place, "price": i.price,
         "color": i.color, "variant": i.variant, "status": i.status, }
 
 
@@ -207,79 +207,167 @@ def search_items_by_group():
         return jsonify([item_to_dict(i) for i in filtered])
 
 
+def str_match(value, q):
+    return q in str(value)
+
+
 @app.route("/api/items/voltage")
 @auth.login_required
 def search_items_by_voltage():
-    q = request.args.get("q", type=float)
+    q = request.args.get("q", type=str)
+
     with SessionLocal() as s:
-        query = (s.query(Item).join(Item.group).join(ItemGroup.battery))
+        query = (
+            s.query(Item)
+             .join(Item.group)
+             .join(ItemGroup.battery)
+             .distinct()
+        )
+
         if not is_Yosh_allowed():
             query = query.filter(
                 ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
             )
-        query = query.all()
+
+        items = query.all()
+
         if is_autocomplete():
             values = sorted({
                 i.group.battery.voltage
-                for i in query
+                for i in items
                 if i.group.battery and i.group.battery.voltage is not None
             })
-            return jsonify([{"id": v, "label": str(v)} for v in values[:10]])
+            return jsonify([
+                {"id": v, "label": str(v)}
+                for v in values[:10]
+            ])
+
+        if not q:
+            return jsonify([])
+
+        seen = {}
+        for i in items:
+            if not i.group.battery:
+                continue
+
+            v = i.group.battery.voltage
+            if v is None:
+                continue
+
+            if q in str(v):
+                seen.setdefault(v, i)
+
         return jsonify([
             item_to_dict(i)
-            for i in query
-            if i.group.battery and str(q) in i.group.battery.voltage
+            for i in seen.values()
         ])
+
 
 
 @app.route("/api/items/current")
 @auth.login_required
 def search_items_by_current():
-    q = request.args.get("q", type=float)
+    q = request.args.get("q", type=str)
+
     with SessionLocal() as s:
-        query = (s.query(Item).join(Item.group).join(ItemGroup.battery))
+        query = (
+            s.query(Item)
+             .join(Item.group)
+             .join(ItemGroup.battery)
+             .distinct()
+        )
+
         if not is_Yosh_allowed():
             query = query.filter(
                 ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
             )
-        query = query.all()
+
+        items = query.all()
+
         if is_autocomplete():
             values = sorted({
                 i.group.battery.current
-                for i in query
+                for i in items
                 if i.group.battery and i.group.battery.current is not None
             })
-            return jsonify([{"id": v, "label": str(v)} for v in values[:10]])
+            return jsonify([
+                {"id": v, "label": str(v)}
+                for v in values[:10]
+            ])
+
+        if not q:
+            return jsonify([])
+
+        seen = {}
+        for i in items:
+            if not i.group.battery:
+                continue
+
+            v = i.group.battery.current
+            if v is None:
+                continue
+
+            if q in str(v):
+                seen.setdefault(v, i)
+
         return jsonify([
             item_to_dict(i)
-            for i in query
-            if i.group.battery and str(q) in i.group.battery.current
+            for i in seen.values()
         ])
+
 
 
 @app.route("/api/items/capacity")
 @auth.login_required
 def search_items_by_capacity():
-    q = request.args.get("q", type=float)
+    q = request.args.get("q", type=str)
+
     with SessionLocal() as s:
-        query = (s.query(Item).join(Item.group).join(ItemGroup.battery))
+        query = (
+            s.query(Item)
+             .join(Item.group)
+             .join(ItemGroup.battery)
+             .distinct()
+        )
+
         if not is_Yosh_allowed():
             query = query.filter(
                 ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
             )
-        query = query.all()
+
+        items = query.all()
+
         if is_autocomplete():
             values = sorted({
                 i.group.battery.capacity
-                for i in query
+                for i in items
                 if i.group.battery and i.group.battery.capacity is not None
             })
-            return jsonify([{"id": v, "label": str(v)} for v in values[:10]])
+            return jsonify([
+                {"id": v, "label": str(v)}
+                for v in values[:10]
+            ])
+
+        if not q:
+            return jsonify([])
+
+        seen = {}
+        for i in items:
+            if not i.group.battery:
+                continue
+
+            v = i.group.battery.capacity
+            if v is None:
+                continue
+
+            if q in str(v):
+                seen.setdefault(v, i)
+
         return jsonify([
             item_to_dict(i)
-            for i in query
-            if i.group.battery and str(q) in i.group.battery.capacity
+            for i in seen.values()
         ])
+
 
 
 @app.route("/api/items/charging-type")
@@ -298,9 +386,16 @@ def search_items_by_charging_type():
             if i.group.battery and q in normalize(i.group.battery.charging_type)
         ]
         if is_autocomplete():
-            return autocomplete(
-                [i.group.battery for i in filtered],
-                lambda b: b.charging_type)
+            seen = set()
+            unique = []
+            for b in (i.group.battery for i in filtered):
+                ct = b.charging_type
+                if ct not in seen:
+                    seen.add(ct)
+                    unique.append(b)
+
+            return autocomplete(unique, lambda b: b.charging_type)
+
         return jsonify([item_to_dict(i) for i in filtered])
 
 
@@ -318,9 +413,16 @@ def search_items_by_bought_place():
         filtered = [
             i for i in query if i.bought_place and q in normalize(i.bought_place)]
         if is_autocomplete():
-            return autocomplete(
-                filtered,
-                lambda i: i.bought_place)
+            seen = set()
+            unique = []
+            for i in filtered:
+                bp = i.bought_place
+                if bp not in seen:
+                    seen.add(bp)
+                    unique.append(i)
+
+            return autocomplete(unique, lambda i: i.bought_place)
+
         return jsonify([item_to_dict(i) for i in filtered])
 
 @app.route("/api/items/variant")
@@ -383,7 +485,7 @@ def search_items_by_status():
 @app.route("/api/items/price")
 @auth.login_required
 def search_items_by_price():
-    q = request.args.get("q", type=float)
+    q = request.args.get("q", "")
     with SessionLocal() as s:
         query = s.query(Item)
         if not is_Yosh_allowed():
@@ -392,8 +494,17 @@ def search_items_by_price():
             )
         query = query.all()
         if is_autocomplete():
-            prices = sorted({i.price for i in query if i.price is not None})
-            return jsonify([{"id": p, "label": str(p)} for p in prices[:10]])
+            prices = sorted(
+                {
+                    i.price
+                    for i in query
+                    if i.price is not None and q in str(i.price)
+                }
+            )
+            return jsonify([
+                {"id": p, "label": str(p)}
+                for p in prices[:10]
+            ])
         return jsonify([item_to_dict(i) for i in query if str(q) in str(i.price)])
 
 
@@ -410,14 +521,23 @@ def search_items_last_seen():
         query = query.all()
         if is_autocomplete():
             dates = sorted(
-                {i.last_seen_date for i in query if i.last_seen_date}, reverse=True)
-            return jsonify([{"id": d.isoformat(), "label": d.isoformat()} for d in dates[:10]])
+                {
+                    i.last_seen_date
+                    for i in query
+                    if i.last_seen_date and q in i.last_seen_date.isoformat()
+                },
+                reverse=True
+            )
+            return jsonify([
+                {"id": d.isoformat(), "label": d.isoformat()}
+                for d in dates[:10]
+            ])
         return jsonify([item_to_dict(i) for i in query if q in str(i.last_seen_date)])
 
 
-@app.route("/api/items/last-charge")
+@app.route("/api/items/last-use")
 @auth.login_required
-def search_items_last_charge():
+def search_items_last_use():
     q = request.args.get("q")
     with SessionLocal() as s:
         query = s.query(Item)
@@ -426,12 +546,20 @@ def search_items_last_charge():
                 ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
             )
         query = query.all()
-        query = query.all()
         if is_autocomplete():
             dates = sorted(
-                {i.last_charge_date for i in query if i.last_charge_date}, reverse=True)
-            return jsonify([{"id": d.isoformat(), "label": d.isoformat()} for d in dates[:10]])
-        return jsonify([item_to_dict(i) for i in query if q in str(i.last_charge_date)])
+                {
+                    i.last_use_date
+                    for i in query
+                    if i.last_use_date and q in i.last_use_date.isoformat()
+                },
+                reverse=True
+            )
+            return jsonify([
+                {"id": d.isoformat(), "label": d.isoformat()}
+                for d in dates[:10]
+            ])
+        return jsonify([item_to_dict(i) for i in query if q in str(i.last_use_date)])
 
 
 @app.route("/api/items/acquired")
@@ -447,8 +575,17 @@ def search_items_acquired():
         query = query.all()
         if is_autocomplete():
             dates = sorted(
-                {i.acquired_date for i in query if i.acquired_date}, reverse=True)
-            return jsonify([{"id": d.isoformat(), "label": d.isoformat()} for d in dates[:10]])
+                {
+                    i.acquired_date
+                    for i in query
+                    if i.acquired_date and q in i.acquired_date.isoformat()
+                },
+                reverse=True
+            )
+            return jsonify([
+                {"id": d.isoformat(), "label": d.isoformat()}
+                for d in dates[:10]
+            ])
         return jsonify([item_to_dict(i) for i in query if q in str(i.acquired_date)])
 
 
@@ -458,13 +595,13 @@ def search_item_by_id():
     q = request.args.get("q", type=int)
     with SessionLocal() as s:
         if is_autocomplete():
-            ids = s.query(Item.id).order_by(Item.id.desc()).limit(10)
+            query = s.query(Item.id).order_by(Item.id.desc())
             if not is_Yosh_allowed():
                 query = query.filter(
                     ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
                 )
-            query = query.all()
-            return jsonify([{"id": i[0], "label": str(i[0])} for i in ids])
+            query = query.limit(10)
+            return jsonify([{"id": i[0], "label": str(i[0])} for i in query])
         item = s.get(Item, q)
         return jsonify([item_to_dict(item)]) if item else jsonify([])
 
@@ -498,10 +635,9 @@ def advanced_search():
         q = s.query(Item).join(Item.group).outerjoin(
             tag_association).outerjoin(Tag)
         if not is_Yosh_allowed():
-            query = query.filter(
+            q = q.filter(
                 ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
             )
-        query = query.all()
 
         if price_min is not None:
             q = q.filter(Item.price >= price_min)
@@ -518,8 +654,8 @@ def advanced_search():
         if tag_partial:
             q = q.filter(func.lower(Tag.name).ilike(f"%{tag_partial}%"))
 
-        query = q.distinct().all()
-        return jsonify([item_to_dict(i) for i in query])
+        q = q.distinct().all()
+        return jsonify([item_to_dict(i) for i in q])
 
 # --------------------
 # HELPERS FOR CREATE FUNCTIONS
@@ -546,7 +682,7 @@ def parse_date(value: str) -> date | None:
         return None
 
 
-ITEM_FIELDS = {"last_seen_date": parse_date, "last_charge_date": parse_date, "has_dedicated_cable": bool, "acquired_date": parse_date, "price": lambda x: x }
+ITEM_FIELDS = {"last_seen_date": parse_date, "last_use_date": parse_date, "has_dedicated_cable": bool, "acquired_date": parse_date, "price": lambda x: x }
 
 
 def apply_item_fields(item, data):

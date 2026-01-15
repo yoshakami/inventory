@@ -96,7 +96,7 @@ class Item(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     last_seen_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
-    last_charge_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    last_use_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
     has_dedicated_cable: Mapped[Optional[bool]] = mapped_column(Boolean)
     acquired_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
 
