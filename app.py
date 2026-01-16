@@ -403,33 +403,18 @@ def search_items_by_charging_type():
 @auth.login_required
 def search_items_by_bought_place():
     q = normalize(request.args.get("q", ""))
-    print(f"[DEBUG] Raw query parameter: {request.args.get('q')}")
-    print(f"[DEBUG] Normalized query: {q}")
-
     with SessionLocal() as s:
         query = s.query(Item)
-        print(f"[DEBUG] Initial query: {query}")
-
         if not is_Yosh_allowed():
             query = query.filter(
                 ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
             )
-            print("[DEBUG] Applied +18 filter because Yosh is not allowed")
-
         query = query.all()
-        print(f"[DEBUG] Query returned {len(query)} items")
-        for i in query:
-            print(f"  [DEBUG] Item: id={i.id}, bought_place={i.bought_place}")
-
         filtered = [
             i for i in query if i.bought_place and q in normalize(i.bought_place)
         ]
-        print(f"[DEBUG] Filtered {len(filtered)} items after matching bought_place")
-        for i in filtered:
-            print(f"  [DEBUG] Filtered Item: id={i.id}, bought_place={i.bought_place}")
 
         if is_autocomplete():
-            print("[DEBUG] Autocomplete mode ON")
             seen = set()
             unique = []
             for i in filtered:
@@ -437,14 +422,10 @@ def search_items_by_bought_place():
                 if bp not in seen:
                     seen.add(bp)
                     unique.append(i)
-                    print(f"  [DEBUG] Added to unique autocomplete: {bp}")
-
             result = autocomplete(unique, lambda i: i.bought_place)
-            print(f"[DEBUG] Autocomplete result: {result}")
             return result
 
         result = [item_to_dict(i) for i in filtered]
-        print(f"[DEBUG] JSON result: {result}")
         return jsonify(result)
 
 
