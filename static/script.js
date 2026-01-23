@@ -149,10 +149,6 @@ async function handleAutocompleteSelect({ input, item }) {
     case "itemID":
       url = `/api/items/by-id?q=${encodeURIComponent(item.id)}`
       break
-
-    case "groupID":
-      url = `/api/items/group-id?q=${encodeURIComponent(item.id)}`
-      break
     case "color":
       url = `/api/items/color?q=${encodeURIComponent(item.id)}`
       break
@@ -296,7 +292,6 @@ autoComplete({ selector: "#lastSeenDate", api: "/api/items/last-seen", onSelect:
 autoComplete({ selector: "#lastUseDate", api: "/api/items/last-use", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#acquiredDate", api: "/api/items/acquired", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#itemID", api: "/api/items/id", onSelect: handleAutocompleteSelect })
-autoComplete({ selector: "#groupID", api: "/api/items/group-id", onSelect: handleAutocompleteSelect })
 
 function isoLabel(label, value) {
   return value ? `<div class="muted"><strong>${label}:</strong> ${value}</div>` : ""
@@ -322,7 +317,6 @@ function renderBattery(b) {
 
 
 function loadItemGroup(group) {
-  groupID.value = group.group_id || group.id
   nameInput.value = group.group
   instructions.value = group.instruction || ""
 
@@ -531,7 +525,6 @@ voltage = document.querySelector("#voltage")
 tags = document.querySelector("#tags")
 instructions = document.querySelector("#instructions")
 nameInput = document.querySelector("#name")
-groupID = document.querySelector("#groupID")
 
 add_item_group_button = document.querySelector("#addItemGroupButton")
 
@@ -561,7 +554,7 @@ tabRight.addEventListener("click", () => {
 
 addItemGroupButton.addEventListener("click", async () => {
   const payload = {
-    id: groupID.value || null,
+    id: null,
     name: nameInput.value.trim(),
     voltage: Number(voltage.value),
     current: Number(current.value),
@@ -582,9 +575,9 @@ addItemGroupButton.addEventListener("click", async () => {
   })
 
   if (!resp.ok) {
-    text = await resp.text()
-    console.error(text)
-    notify(text, "error")
+    teeext = await resp.json()
+    console.error(teeext)
+    notify(teeext.error, "error")
     return
   }
 
