@@ -22,8 +22,9 @@ then add as many items linked to that group. as long as the ID box is empty, it'
  
 # Editing
 If the ID box corresponds to an existing item, it will edit it. <br>
-You can't edit an item group. Create a new one instead. <br>
-Then click on the pencil icon on a specific item and assign it to the new Item Group
+If you already made an Item Group with the same name, you can edit every attributes except its name. <br>
+If you change the name of an Item Group, the app will create a new one instead. <br>
+You'd then need to click on the pencil icon on every item of the previous Group and assign it to the new Item Group
 
 # Notes
 Empty Item Groups are not shown on the results panel. <br>
