@@ -160,7 +160,7 @@ def search_items_by_tag():
 @app.route("/api/items/location")
 @auth.login_required
 def search_items_by_location():
-    q = normalize(request.args.get("q", "").rsplit(">", 1)[-1])
+    q = normalize(request.args.get("q", "").rsplit(">", 1)[-1].strip())
     with SessionLocal() as s:
         if is_autocomplete():
             query = s.query(Location).all()
@@ -826,28 +826,58 @@ def create_location():
 
 @app.route("/api/item-group", methods=["POST"])
 @auth.login_required
-def create_item_group():
+def create_or_update_item_group():
     if not am_i_admin():
         return abort(400, "You're not admin")
+
     data = request.json or {}
     name = (data.get("name") or "").strip()
     if not name:
         return abort(400, "Item group name is required")
+
     with SessionLocal() as s:
-        item_group = s.get(ItemGroup, data.get("id"))
-        battery = get_or_create_battery(
-            s, voltage=data.get("voltage"), current=data.get("current"), capacity=data.get("capacity"), charging_type=data.get("charging_type"),)
-        tags = get_or_create_tags(s, data.get("tags", []))
+
+        # Try to get an existing group by name
+        item_group = s.query(ItemGroup).filter(ItemGroup.name.ilike(name)).first()
+
+        # If an ID was provided and it's different from the one found by name, fetch by ID
+        group_id = data.get("id")
+        if group_id:
+            id_group = s.get(ItemGroup, group_id)
+            if id_group and id_group != item_group:
+                # Prefer the ID group (so edits by ID are respected)
+                item_group = id_group
+
+        # If no group exists at all, create a new one
         if not item_group:
             item_group = ItemGroup()
+            s.add(item_group)
+
+        # Update all fields
         item_group.name = name
         item_group.instruction = data.get("instruction")
+
+        # Battery
+        battery = get_or_create_battery(
+            s,
+            voltage=data.get("voltage"),
+            current=data.get("current"),
+            capacity=data.get("capacity"),
+            charging_type=data.get("charging_type"),
+        )
         item_group.battery = battery
+
+        # Tags
+        tags = get_or_create_tags(s, data.get("tags", []))
         item_group.tags = tags
-        s.add(item_group)
+
         s.commit()
+
         return {
-            "id": item_group.id, "updated": bool(data.get("id")), }, 200 if data.get("id") else 201
+            "id": item_group.id,
+            "updated": True,
+        }, 200
+
 
 
 if __name__ == "__main__":
