@@ -164,27 +164,13 @@ def search_items_by_location():
     with SessionLocal() as s:
         if is_autocomplete():
             query = s.query(Location).all()
-            # filtered = []
-            # for i in query:
-            #    data_name = normalize(location_helper_func(i))
-            #    print(f'"{q}" vs. "{data_name}"')
-            #    if q in data_name:
-            #        filtered.append(i)
             filtered = [i for i in query if q in normalize(location_helper_func(i))]
             return autocomplete([i for i in filtered], location_helper_func)
-        query = s.query(Item).join(Item.location)
+        query = s.query(Item).outerjoin(Item.location)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
-        filtered = []
-        for i in query:
-            data_name = normalize(location_helper_func(i.location))
-            print(f'"{q}" vs. "{data_name}"')
-            if q in data_name:
-                filtered.append(i)
-        # filtered = [i for i in query if q in normalize(location_helper_func(i.location))]
+        filtered = [i for i in query if q in normalize(location_helper_func(i.location))]
         return jsonify([item_to_dict(i) for i in filtered])
 
 
