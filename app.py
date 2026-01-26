@@ -209,48 +209,34 @@ def str_match(value, q):
 @auth.login_required
 def search_items_by_voltage():
     q = request.args.get("q", type=str)
-
     with SessionLocal() as s:
-        query = (
-            s.query(Item)
-             .join(Item.group)
-             .join(ItemGroup.battery)
-             .distinct()
-        )
-
+        query = (s.query(Item).join(Item.group).join(ItemGroup.battery).distinct())
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
-
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         items = query.all()
-
-        if is_autocomplete():
-            values = sorted({
+        if is_autocomplete() and q:
+            filtered = [
                 i.group.battery.voltage
                 for i in items
-                if i.group.battery and i.group.battery.voltage is not None
-            })
-            return jsonify([
-                {"id": v, "label": str(v)}
-                for v in values[:10]
-            ])
-
+                if i.group.battery and i.group.battery.voltage is not None and q in str(i.group.battery.voltage)
+            ]
+            exact_matches = [v for v in filtered if str(v) == q]
+            partial_matches = [v for v in filtered if str(v) != q]
+            partial_matches.sort() # sort partial matches alphabetically or numerically
+            result = exact_matches + partial_matches
+            result = list(dict.fromkeys(result)) # deduplicate
+            return jsonify([{"id": v, "label": str(v)} for v in result[:10]])
         if not q:
             return jsonify([])
-
         seen = {}
         for i in items:
             if not i.group.battery:
                 continue
-
             v = i.group.battery.voltage
             if v is None:
                 continue
-
             if q in str(v):
                 seen.setdefault(v, i)
-
         return jsonify([
             item_to_dict(i)
             for i in seen.values()
@@ -262,48 +248,34 @@ def search_items_by_voltage():
 @auth.login_required
 def search_items_by_current():
     q = request.args.get("q", type=str)
-
     with SessionLocal() as s:
-        query = (
-            s.query(Item)
-             .join(Item.group)
-             .join(ItemGroup.battery)
-             .distinct()
-        )
-
+        query = (s.query(Item).join(Item.group).join(ItemGroup.battery).distinct())
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
-
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         items = query.all()
-
-        if is_autocomplete():
-            values = sorted({
+        if is_autocomplete() and q:
+            filtered = [
                 i.group.battery.current
                 for i in items
-                if i.group.battery and i.group.battery.current is not None
-            })
-            return jsonify([
-                {"id": v, "label": str(v)}
-                for v in values[:10]
-            ])
-
+                if i.group.battery and i.group.battery.current is not None and q in str(i.group.battery.current)
+            ]
+            exact_matches = [v for v in filtered if str(v) == q]
+            partial_matches = [v for v in filtered if str(v) != q]
+            partial_matches.sort() # sort partial matches alphabetically or numerically
+            result = exact_matches + partial_matches
+            result = list(dict.fromkeys(result)) # deduplicate
+            return jsonify([{"id": v, "label": str(v)} for v in result[:10]])
         if not q:
             return jsonify([])
-
         seen = {}
         for i in items:
             if not i.group.battery:
                 continue
-
             v = i.group.battery.current
             if v is None:
                 continue
-
             if q in str(v):
                 seen.setdefault(v, i)
-
         return jsonify([
             item_to_dict(i)
             for i in seen.values()
@@ -315,48 +287,34 @@ def search_items_by_current():
 @auth.login_required
 def search_items_by_capacity():
     q = request.args.get("q", type=str)
-
     with SessionLocal() as s:
-        query = (
-            s.query(Item)
-             .join(Item.group)
-             .join(ItemGroup.battery)
-             .distinct()
-        )
-
+        query = (s.query(Item).join(Item.group).join(ItemGroup.battery).distinct())
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
-
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         items = query.all()
-
-        if is_autocomplete():
-            values = sorted({
+        if is_autocomplete() and q:
+            filtered = [
                 i.group.battery.capacity
                 for i in items
-                if i.group.battery and i.group.battery.capacity is not None
-            })
-            return jsonify([
-                {"id": v, "label": str(v)}
-                for v in values[:10]
-            ])
-
+                if i.group.battery and i.group.battery.capacity is not None and q in str(i.group.battery.capacity)
+            ]
+            exact_matches = [v for v in filtered if str(v) == q]
+            partial_matches = [v for v in filtered if str(v) != q]
+            partial_matches.sort() # sort partial matches alphabetically or numerically
+            result = exact_matches + partial_matches
+            result = list(dict.fromkeys(result)) # deduplicate
+            return jsonify([{"id": v, "label": str(v)} for v in result[:10]])
         if not q:
             return jsonify([])
-
         seen = {}
         for i in items:
             if not i.group.battery:
                 continue
-
             v = i.group.battery.capacity
             if v is None:
                 continue
-
             if q in str(v):
                 seen.setdefault(v, i)
-
         return jsonify([
             item_to_dict(i)
             for i in seen.values()
@@ -371,9 +329,7 @@ def search_items_by_charging_type():
     with SessionLocal() as s:
         query = (s.query(Item).join(Item.group).join(ItemGroup.battery))
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         filtered = [
             i for i in query
@@ -398,11 +354,9 @@ def search_items_by_charging_type():
 def search_items_by_bought_place():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
-        query = s.query(Item)
+        query = s.query(Item).outerjoin(Item.group)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         filtered = [
             i for i in query if i.bought_place and q in normalize(i.bought_place)
@@ -428,18 +382,23 @@ def search_items_by_bought_place():
 def search_items_by_variant():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
-        query = s.query(Item)
+        query = s.query(Item).outerjoin(Item.group)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         filtered = [
             i for i in query if i.variant and q in normalize(i.variant)]
+
         if is_autocomplete():
-            return autocomplete(
-                filtered,
-                lambda i: i.variant)
+            seen = set()
+            unique = []
+            for i in filtered:
+                col = i.variant
+                if col not in seen:
+                    seen.add(col)
+                    unique.append(i)
+            result = autocomplete(unique, lambda i: i.variant)
+            return result
         return jsonify([item_to_dict(i) for i in filtered])
 
 @app.route("/api/items/color")
@@ -447,18 +406,23 @@ def search_items_by_variant():
 def search_items_by_color():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
-        query = s.query(Item)
+        query = s.query(Item).outerjoin(Item.group)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         filtered = [
             i for i in query if i.color and q in normalize(i.color)]
+
         if is_autocomplete():
-            return autocomplete(
-                filtered,
-                lambda i: i.color)
+            seen = set()
+            unique = []
+            for i in filtered:
+                col = i.color
+                if col not in seen:
+                    seen.add(col)
+                    unique.append(i)
+            result = autocomplete(unique, lambda i: i.color)
+            return result
         return jsonify([item_to_dict(i) for i in filtered])
 
 @app.route("/api/items/status")
@@ -466,18 +430,22 @@ def search_items_by_color():
 def search_items_by_status():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
-        query = s.query(Item)
+        query = s.query(Item).outerjoin(Item.group)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         filtered = [
             i for i in query if i.status and q in normalize(i.status)]
         if is_autocomplete():
-            return autocomplete(
-                filtered,
-                lambda i: i.status)
+            seen = set()
+            unique = []
+            for i in filtered:
+                col = i.status
+                if col not in seen:
+                    seen.add(col)
+                    unique.append(i)
+            result = autocomplete(unique, lambda i: i.status)
+            return result
         return jsonify([item_to_dict(i) for i in filtered])
     
 @app.route("/api/items/price")
@@ -485,11 +453,9 @@ def search_items_by_status():
 def search_items_by_price():
     q = request.args.get("q", "")
     with SessionLocal() as s:
-        query = s.query(Item)
+        query = s.query(Item).outerjoin(Item.group)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         if is_autocomplete():
             prices = sorted(
@@ -511,11 +477,9 @@ def search_items_by_price():
 def search_items_last_seen():
     q = request.args.get("q")
     with SessionLocal() as s:
-        query = s.query(Item)
+        query = s.query(Item).outerjoin(Item.group)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         if is_autocomplete():
             dates = sorted(
@@ -538,11 +502,9 @@ def search_items_last_seen():
 def search_items_last_use():
     q = request.args.get("q")
     with SessionLocal() as s:
-        query = s.query(Item)
+        query = s.query(Item).outerjoin(Item.group)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         if is_autocomplete():
             dates = sorted(
@@ -565,11 +527,9 @@ def search_items_last_use():
 def search_items_acquired():
     q = request.args.get("q")
     with SessionLocal() as s:
-        query = s.query(Item)
+        query = s.query(Item).outerjoin(Item.group)
         if not is_Yosh_allowed():
-            query = query.filter(
-                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-            )
+            query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
         query = query.all()
         if is_autocomplete():
             dates = sorted(
@@ -595,10 +555,7 @@ def search_item_by_id():
         if is_autocomplete():
             query = s.query(Item.id).order_by(Item.id.desc())
             if not is_Yosh_allowed():
-                query = query.filter(
-                    ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-                )
-            query = query.limit(10)
+                query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%")))).limit(10)
             return jsonify([{"id": i[0], "label": str(i[0])} for i in query])
         item = s.get(Item, q)
         return jsonify([item_to_dict(item)]) if item else jsonify([])

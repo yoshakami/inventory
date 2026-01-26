@@ -81,7 +81,7 @@ async function handleAutocompleteSelect({ input, item }) {
   input.value = item.label
   input.dataset.id = item.id
 
-  // 🏷 TAG INPUT = ADD TAG IMMEDIATELY
+  // TAG INPUT = ADD TAG IMMEDIATELY
   if (input.id === "tag-input") {
     selectedTags.add(item.label)
     renderTags()
@@ -222,7 +222,7 @@ function autoComplete({ selector, api, onSelect }) {
       input.dataset.id = item.id
       close()
 
-      // 🔥 delegate behavior based on input.id
+      // delegate behavior based on input.id
       if (onSelect) {
         await onSelect({
           input,
@@ -291,6 +291,9 @@ autoComplete({ selector: "#price", api: "/api/items/price", onSelect: handleAuto
 autoComplete({ selector: "#lastSeenDate", api: "/api/items/last-seen", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#lastUseDate", api: "/api/items/last-use", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#acquiredDate", api: "/api/items/acquired", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#color", api: "/api/items/color", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#variant", api: "/api/items/variant", onSelect: handleAutocompleteSelect })
+autoComplete({ selector: "#status", api: "/api/items/status", onSelect: handleAutocompleteSelect })
 autoComplete({ selector: "#itemID", api: "/api/items/id", onSelect: handleAutocompleteSelect })
 
 function isoLabel(label, value) {
