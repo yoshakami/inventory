@@ -456,6 +456,10 @@ addLocationButton.addEventListener("click", async () => {
     console.log("Location created:", data, resp)
     notify("Location Created", "success")
   }
+  if (resp.status == 202) {
+    console.log("Location updated:", data, resp)
+    notify("Location updated", "success")
+  }
 })
 
 

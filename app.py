@@ -768,7 +768,7 @@ def create_location():
                 existing.parent_id = new_parent_id
                 s.commit()
                 # Return 200 to JS, meaning "OK, existing item updated"
-                return {"id": existing.id, "name": existing.name, "updated": True}, 200
+                return {"id": existing.id, "name": existing.name, "updated": True}, 202
             
             # Return 200, nothing changed
             return {"id": existing.id, "name": existing.name, "updated": False}, 200
