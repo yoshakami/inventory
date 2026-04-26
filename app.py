@@ -730,7 +730,6 @@ def create_item():
         s.commit()
         return {"id": item.id}, 200 if data.get("id") else 201
 
-
 @app.route("/api/locations", methods=["POST"])
 @auth.login_required
 def create_location():
@@ -749,25 +748,32 @@ def create_location():
         return abort(400, "Location name cannot be empty")
 
     with SessionLocal() as s:
-        parent = (
-            s.query(Location)
-             .filter(Location.name.ilike(parent_name))
-             .one_or_none()
-            if parent_name else None
-        )
-
-        existing = (
-            s.query(Location)
-             .filter(
-                 Location.name.ilike(name),
-                 Location.parent_id == (parent.id if parent else None),
-             )
-             .one_or_none()
-        )
+        # 1. Resolve the parent location
+        parent = None
+        if parent_name:
+            parent = s.query(Location).filter(Location.name.ilike(parent_name)).first()
+            
+            # Add this check to prevent silent orphans!
+            if not parent:
+                return abort(404, f"The parent location '{parent_name}' does not exist!")
+            
+        # 2. Find the existing location BY NAME ONLY
+        existing = s.query(Location).filter(Location.name.ilike(name)).first()
 
         if existing:
-            return {"id": existing.id, "name": existing.name}, 200
+            # 3. If it exists, update the parent_id
+            new_parent_id = parent.id if parent else None
+            
+            if existing.parent_id != new_parent_id:
+                existing.parent_id = new_parent_id
+                s.commit()
+                # Return 200 to JS, meaning "OK, existing item updated"
+                return {"id": existing.id, "name": existing.name, "updated": True}, 200
+            
+            # Return 200, nothing changed
+            return {"id": existing.id, "name": existing.name, "updated": False}, 200
 
+        # 4. If it does not exist, create it
         loc = Location(name=name, parent=parent)
         s.add(loc)
         s.commit()
