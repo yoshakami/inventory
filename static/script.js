@@ -422,44 +422,71 @@ function renderResults(items) {
 
 const addLocationInput = document.querySelector("#addLocation")
 const addParentInput = document.querySelector("#addParent")
+const locationID = document.querySelector("#locationID")
 const addLocationButton = document.querySelector("#addLocationButton")
 
 addLocationButton.addEventListener("click", async () => {
   const name = addLocationInput.value.trim()
-  const parent = addParentInput.value || null
+  const parent = addParentInput.value.trim() || null
+  const locID = locationID.value.trim()
 
   if (!name) return
-
-  const resp = await fetch(`${API_BASE}/api/locations`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Yosh": YOSH_ENABLED,
-    },
-    body: JSON.stringify({
-      name,
-      parent,
-    }),
-  })
-
-  if (!resp.ok) {
-    console.error(await resp.text())
+  if (!locationId) {
+    const resp = await fetch(`${API_BASE}/api/locations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Yosh": YOSH_ENABLED,
+      },
+      body: JSON.stringify({
+        name,
+        parent,
+      }),
+    })
+    if (!resp.ok) {
+      teeext = await resp.text()
+      console.error(teeext)
+      notify(teeext.error, "error")
+      return
+    }
+    const data = await resp.json()
+    if (resp.status == 200) {
+      console.log("Location already exists:", data, resp)
+      notify("Location already exists", "info")
+    }
+    if (resp.status == 201) {
+      console.log("Location created:", data, resp)
+      notify("Location Created", "success")
+    }
+    if (resp.status == 202) {
+      console.log("Location updated:", data, resp)
+      notify("Location updated", "success")
+    }
     return
   }
+  const resp = await fetch(`${API_BASE}/api/locations/${locID}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Yosh": YOSH_ENABLED,
+      },
+      body: JSON.stringify({
+        name,
+        parent,
+      }),
+    })
 
-  const data = await resp.json()
-  if (resp.status == 200) {
-    console.log("Location already exists:", data, resp)
-    notify("Location already exists", "info")
-  }
-  if (resp.status == 201) {
-    console.log("Location created:", data, resp)
-    notify("Location Created", "success")
-  }
-  if (resp.status == 202) {
-    console.log("Location updated:", data, resp)
-    notify("Location updated", "success")
-  }
+    if (!resp.ok) {
+      teeext = await resp.text()
+      console.error(teeext)
+      notify(teeext.error, "error")
+      return
+    }
+    const data = await resp.json()
+    if (resp.status == 200) {
+      console.log("Location created:", data, resp)
+      notify("Location Renamed", "success")
+    }
 })
 
 
@@ -503,7 +530,7 @@ addItemButton.addEventListener("click", async () => {
   })
 
   if (!resp.ok) {
-    teeext = await resp.json()
+    teeext = await resp.text()
     console.error(teeext)
     notify(teeext.error, "error")
     return
@@ -582,7 +609,7 @@ addItemGroupButton.addEventListener("click", async () => {
   })
 
   if (!resp.ok) {
-    teeext = await resp.json()
+    teeext = await resp.text()
     console.error(teeext)
     notify(teeext.error, "error")
     return

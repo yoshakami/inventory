@@ -768,10 +768,10 @@ def create_location():
                 existing.parent_id = new_parent_id
                 s.commit()
                 # Return 200 to JS, meaning "OK, existing item updated"
-                return {"id": existing.id, "name": existing.name, "updated": True}, 202
+                return {"id": existing.id, "name": existing.name}, 202
             
             # Return 200, nothing changed
-            return {"id": existing.id, "name": existing.name, "updated": False}, 200
+            return {"id": existing.id, "name": existing.name}, 200
 
         # 4. If it does not exist, create it
         loc = Location(name=name, parent=parent)
@@ -779,6 +779,40 @@ def create_location():
         s.commit()
 
         return {"id": loc.id, "name": loc.name}, 201
+
+
+@app.route("/api/locations/<int:location_id>", methods=["PUT"])
+@auth.login_required
+def update_location(location_id):
+    if not am_i_admin():
+        return abort(400, "You're not admin")
+
+    data = request.json or {}
+    new_name = (data.get("name") or "").strip()
+
+    if not new_name:
+        return abort(400, "New name cannot be empty")
+
+    with SessionLocal() as s:
+        # 1. Fetch the location by ID
+        loc = s.query(Location).get(location_id)
+        if not loc:
+            return abort(404, "Location not found")
+
+        # 2. Check if another location already has the new name
+        existing = s.query(Location).filter(
+            Location.name.ilike(new_name), 
+            Location.id != location_id
+        ).first()
+        
+        if existing:
+            return abort(400, "A location with this name already exists")
+
+        # 3. Update the name
+        loc.name = new_name
+        s.commit()
+        
+        return {"id": loc.id, "name": loc.name}, 200
 
 
 @app.route("/api/item-group", methods=["POST"])

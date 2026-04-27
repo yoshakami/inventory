@@ -46,7 +46,7 @@
         </div>
         <!-- Add / edit form -->
         <div class="card stack">
-          <h2>Add Item Group</h2>
+          <h2>Item Group</h2>
           <div>
             <label>Name</label>
             <input id="name" class="itemGroup" placeholder="Required: Item Name" />
@@ -89,7 +89,7 @@
         </div>
         <!-- Add / edit form -->
         <div class="card stack">
-          <h2>Add Item</h2>
+          <h2>Item</h2>
           <div>
             <label>Item ID</label>
             <input id="itemID" placeholder="Leave empty to create new" />
@@ -152,7 +152,12 @@
           <button id="addItemButton">Save</button>
         </div>
         <div class="card stack">
-          <h2>Add Location</h2>
+          <h2>Location</h2>
+          <div>
+            <label>Location ID</label>
+            <input id="locationID" class="location" placeholder="Leave empty to create new" />
+            <ul class="autocomplete-list" hidden></ul>
+          </div>
           <div>
             <label>Location</label>
             <input id="addLocation" class="location" placeholder="Required" />
