@@ -126,12 +126,12 @@ def battery_to_dict(b):
         "voltage": b.voltage, "current": b.current, "capacity": b.capacity, "charging_type": b.charging_type, }
 
 
-def item_to_dict(i: Item):
+def item_to_dict(i: Item): # this dict is used by the js for editing an item. string is the name in the js
     return {
         "id": i.id, "group": i.group.name, "instruction": i.group.instruction, "battery": battery_to_dict(i.group.battery),
-        "tags": [t.name for t in i.group.tags], "location": location_helper_func(i.location), "last_seen": iso(i.last_seen_date),
+        "tags": [t.name for t in i.group.tags], "last_seen": iso(i.last_seen_date),
         "last_use": iso(i.last_use_date), "acquired": iso(i.acquired_date), "has_cable": i.has_dedicated_cable, "bought_place": i.bought_place, "price": i.price,
-        "color": i.color, "variant": i.variant, "status": i.status, }
+        "color": i.color, "variant": i.variant, "status": i.status, "location": location_helper_func(i.location), "location_id": i.location.id, "location_parent": location_helper_func(i.location.parent), }
 
 
 @app.route("/api/items/tag")

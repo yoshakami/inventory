@@ -350,9 +350,17 @@ function loadItem(item) {
   color.value = item.color || ""
   statusID.value = item.status || ""
 }
+
+function loadLocation(item) {
+  locationID.value = item.location_id || ""
+  addLocationInput.value = item.location
+  addParentInput.value = item.location_parent || ""
+}
+
 function loadItemForEdit(item) {
   loadItemGroup(item)
   loadItem(item)
+  loadLocation(item)
 
   // Switch to edit pane
   layout.classList.remove("show-right")
