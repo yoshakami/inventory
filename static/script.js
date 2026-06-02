@@ -450,7 +450,7 @@ addLocationButton.addEventListener("click", async () => {
   const locID = locationID.value.trim()
 
   if (!name) return
-  if (!locID) {
+  if (locID == "") {
     const resp = await fetch(`${API_BASE}/api/locations`, {
       method: "POST",
       headers: {
