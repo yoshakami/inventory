@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 engine = create_engine(
-    "mysql+pymysql://root:@localhost/inventory", # this is upmost security
+    "sqlite:///inventory.db", # this is upmost security
     future=True,
     echo=False,
     pool_pre_ping=True, # run SELECT 1
