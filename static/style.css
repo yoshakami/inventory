@@ -76,15 +76,17 @@ label {
        Header (mobile)
     -------------------- */
 .topbar {
-  display: none;
+  display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
+  justify-content: flex-start;
+  padding: 8px 10px;
   border-bottom: 1px solid #222738;
   background: #0f1115;
   position: sticky;
   top: 0;
   z-index: 10;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .topbar h1 {
@@ -95,6 +97,23 @@ label {
 .topbar .tabs {
   display: flex;
   gap: 6px;
+  flex-wrap: nowrap;
+  align-items: center;
+  width: 100%;
+}
+
+.topbar button {
+  white-space: nowrap;
+  padding: 6px 10px;
+  line-height: 1;
+}
+
+#limitNumber {
+  width: 96px;
+  min-width: 96px;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  height: 34px;
 }
 
 /* --------------------

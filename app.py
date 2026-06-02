@@ -48,6 +48,16 @@ def abort(resp_status, message):  # this one sends JSON instead of HTML
 def is_autocomplete() -> bool:
     return request.args.get("autocomplete", "").lower() in ("1", "true", "yes")
 
+def get_autocomplete_limit() -> int:
+    """
+    Max number of autocomplete suggestions to return.
+    Defaults to 10 when `limitNumber` is missing/empty/invalid.
+    """
+    limit = request.args.get("limitNumber", type=int)
+    if limit is None or limit <= 0:
+        return 10
+    return limit
+
 
 def normalize(text: str) -> str:
     if not text:
@@ -153,7 +163,7 @@ def search_items_by_tag():
         if is_autocomplete():
             tags = [
                 t for i in filtered for t in i.group.tags if q in normalize(t.name)]
-            return autocomplete(tags, lambda t: t.name)
+            return autocomplete(tags, lambda t: t.name, limit=get_autocomplete_limit())
         return jsonify([item_to_dict(i) for i in filtered])
 
 
@@ -165,7 +175,7 @@ def search_items_by_location():
         if is_autocomplete():
             query = s.query(Location).all()
             filtered = [i for i in query if q in normalize(location_helper_func(i))]
-            return autocomplete([i for i in filtered], location_helper_func)
+            return autocomplete([i for i in filtered], location_helper_func, limit=get_autocomplete_limit())
         query = s.query(Item).outerjoin(Item.location)
         if not is_Yosh_allowed():
             query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
@@ -190,7 +200,8 @@ def search_items_by_group():
             filtered = [i for i in query if q in normalize(i.name)]
             return autocomplete(
                 [i for i in filtered],
-                lambda g: g.name)
+                lambda g: g.name,
+                limit=get_autocomplete_limit())
         query = s.query(Item).join(Item.group)
         if not Yosh_allowed:
             query = query.filter(
@@ -225,7 +236,8 @@ def search_items_by_voltage():
             partial_matches.sort() # sort partial matches alphabetically or numerically
             result = exact_matches + partial_matches
             result = list(dict.fromkeys(result)) # deduplicate
-            return jsonify([{"id": v, "label": str(v)} for v in result[:10]])
+            limit = get_autocomplete_limit()
+            return jsonify([{"id": v, "label": str(v)} for v in result[:limit]])
         if not q:
             return jsonify([])
         seen = {}
@@ -264,7 +276,8 @@ def search_items_by_current():
             partial_matches.sort() # sort partial matches alphabetically or numerically
             result = exact_matches + partial_matches
             result = list(dict.fromkeys(result)) # deduplicate
-            return jsonify([{"id": v, "label": str(v)} for v in result[:10]])
+            limit = get_autocomplete_limit()
+            return jsonify([{"id": v, "label": str(v)} for v in result[:limit]])
         if not q:
             return jsonify([])
         seen = {}
@@ -303,7 +316,8 @@ def search_items_by_capacity():
             partial_matches.sort() # sort partial matches alphabetically or numerically
             result = exact_matches + partial_matches
             result = list(dict.fromkeys(result)) # deduplicate
-            return jsonify([{"id": v, "label": str(v)} for v in result[:10]])
+            limit = get_autocomplete_limit()
+            return jsonify([{"id": v, "label": str(v)} for v in result[:limit]])
         if not q:
             return jsonify([])
         seen = {}
@@ -344,7 +358,7 @@ def search_items_by_charging_type():
                     seen.add(ct)
                     unique.append(b)
 
-            return autocomplete(unique, lambda b: b.charging_type)
+            return autocomplete(unique, lambda b: b.charging_type, limit=get_autocomplete_limit())
 
         return jsonify([item_to_dict(i) for i in filtered])
 
@@ -370,7 +384,7 @@ def search_items_by_bought_place():
                 if bp not in seen:
                     seen.add(bp)
                     unique.append(i)
-            result = autocomplete(unique, lambda i: i.bought_place)
+            result = autocomplete(unique, lambda i: i.bought_place, limit=get_autocomplete_limit())
             return result
 
         result = [item_to_dict(i) for i in filtered]
@@ -397,7 +411,7 @@ def search_items_by_variant():
                 if col not in seen:
                     seen.add(col)
                     unique.append(i)
-            result = autocomplete(unique, lambda i: i.variant)
+            result = autocomplete(unique, lambda i: i.variant, limit=get_autocomplete_limit())
             return result
         return jsonify([item_to_dict(i) for i in filtered])
 
@@ -421,7 +435,7 @@ def search_items_by_color():
                 if col not in seen:
                     seen.add(col)
                     unique.append(i)
-            result = autocomplete(unique, lambda i: i.color)
+            result = autocomplete(unique, lambda i: i.color, limit=get_autocomplete_limit())
             return result
         return jsonify([item_to_dict(i) for i in filtered])
 
@@ -444,7 +458,7 @@ def search_items_by_status():
                 if col not in seen:
                     seen.add(col)
                     unique.append(i)
-            result = autocomplete(unique, lambda i: i.status)
+            result = autocomplete(unique, lambda i: i.status, limit=get_autocomplete_limit())
             return result
         return jsonify([item_to_dict(i) for i in filtered])
     
@@ -465,9 +479,10 @@ def search_items_by_price():
                     if i.price is not None and q in str(i.price)
                 }
             )
+            limit = get_autocomplete_limit()
             return jsonify([
                 {"id": p, "label": str(p)}
-                for p in prices[:10]
+                for p in prices[:limit]
             ])
         return jsonify([item_to_dict(i) for i in query if str(q) in str(i.price)])
 
@@ -490,9 +505,10 @@ def search_items_last_seen():
                 },
                 reverse=True
             )
+            limit = get_autocomplete_limit()
             return jsonify([
                 {"id": d.isoformat(), "label": d.isoformat()}
-                for d in dates[:10]
+                for d in dates[:limit]
             ])
         return jsonify([item_to_dict(i) for i in query if q in str(i.last_seen_date)])
 
@@ -515,9 +531,10 @@ def search_items_last_use():
                 },
                 reverse=True
             )
+            limit = get_autocomplete_limit()
             return jsonify([
                 {"id": d.isoformat(), "label": d.isoformat()}
-                for d in dates[:10]
+                for d in dates[:limit]
             ])
         return jsonify([item_to_dict(i) for i in query if q in str(i.last_use_date)])
 
@@ -540,9 +557,10 @@ def search_items_acquired():
                 },
                 reverse=True
             )
+            limit = get_autocomplete_limit()
             return jsonify([
                 {"id": d.isoformat(), "label": d.isoformat()}
-                for d in dates[:10]
+                for d in dates[:limit]
             ])
         return jsonify([item_to_dict(i) for i in query if q in str(i.acquired_date)])
 
@@ -554,8 +572,10 @@ def search_item_by_id():
     with SessionLocal() as s:
         if is_autocomplete():
             query = s.query(Item.id).order_by(Item.id.desc())
+            limit = get_autocomplete_limit()
             if not is_Yosh_allowed():
-                query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%")))).limit(10)
+                query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
+            query = query.limit(limit)
             return jsonify([{"id": i[0], "label": str(i[0])} for i in query])
         item = s.get(Item, q)
         return jsonify([item_to_dict(item)]) if item else jsonify([])

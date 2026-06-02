@@ -81,6 +81,13 @@ async function handleAutocompleteSelect({ input, item }) {
   input.value = item.label
   input.dataset.id = item.id
 
+  // Special-case: Location ID input should store the numeric ID (not the breadcrumb label).
+  if (input.id === "locationID") {
+    input.value = item.id ?? ""
+    input.dataset.id = item.id
+    return
+  }
+
   // TAG INPUT = ADD TAG IMMEDIATELY
   if (input.id === "tag-input") {
     selectedTags.add(item.label)
@@ -236,7 +243,11 @@ function autoComplete({ selector, api, onSelect }) {
       const q = e.target.value.trim()
       if (!q) return close()
 
-      const res = await fetch(`${API_BASE}${api}?&autocomplete=true&q=${encodeURIComponent(q)}`,
+      const limitEl = document.getElementById("limitNumber")
+      let limitNumber = parseInt(limitEl?.value, 10)
+      if (!Number.isFinite(limitNumber) || limitNumber <= 0) limitNumber = 10
+
+      const res = await fetch(`${API_BASE}${api}?&autocomplete=true&q=${encodeURIComponent(q)}&limitNumber=${limitNumber}`,
       {
         headers: {
       "X-Yosh": YOSH_ENABLED,
@@ -439,7 +450,7 @@ addLocationButton.addEventListener("click", async () => {
   const locID = locationID.value.trim()
 
   if (!name) return
-  if (!locationID) {
+  if (!locID) {
     const resp = await fetch(`${API_BASE}/api/locations`, {
       method: "POST",
       headers: {
@@ -574,6 +585,53 @@ add_item_group_button = document.querySelector("#addItemGroupButton")
 const tabLeft = document.querySelector("#tab-left")
 const tabRight = document.querySelector("#tab-right")
 const layout = document.querySelector(".layout")
+
+function setSplitView(split) {
+  // Split 1: Edit only (left)
+  // Split 2: Edit + View (left + right)
+  // Split 3: Edit + View + Filters (left + right + filters)
+  layout.classList.remove("show-left", "show-right", "show-filters")
+  if (split === 1) {
+    layout.classList.add("show-left")
+  } else if (split === 2) {
+    layout.classList.add("show-left", "show-right")
+  } else if (split === 3) {
+    layout.classList.add("show-left", "show-right", "show-filters")
+  }
+}
+
+function isTypingInControl(el) {
+  if (!el) return false
+  const tag = (el.tagName || "").toLowerCase()
+  if (tag === "input" || tag === "textarea" || tag === "select") return true
+  return !!el.isContentEditable
+}
+
+document.addEventListener("keydown", e => {
+  // Don't steal keybinds while typing.
+  if (isTypingInControl(document.activeElement)) return
+  if (e.altKey || e.ctrlKey || e.metaKey) return
+
+  if (e.key === "1") {
+    e.preventDefault()
+    setSplitView(1)
+  } else if (e.key === "2") {
+    e.preventDefault()
+    setSplitView(2)
+  } else if (e.key === "3") {
+    e.preventDefault()
+    setSplitView(3)
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault()
+    setSplitView(1)
+  } else if (e.key === "ArrowRight") {
+    e.preventDefault()
+    setSplitView(2)
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault()
+    setSplitView(3)
+  }
+})
 
 advBtn.addEventListener("click", () => {
   layout.classList.remove("show-right")

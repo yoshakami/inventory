@@ -62,7 +62,7 @@ GET_ENDPOINTS = [
 ]
 
 AUTOCOMPLETE_ENDPOINTS = [
-    (path, {**params, "autocomplete": 1})
+    (path, {**params, "autocomplete": 1, "limitNumber": 3})
     for path, params in GET_ENDPOINTS
     if path.startswith("/api/")
 ]
