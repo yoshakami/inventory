@@ -738,6 +738,7 @@ def create_location():
 
     data = request.json or {}
 
+    # Keep rsplit for the new location name if it's arriving as a path segment
     name = (data.get("name") or "").rsplit(">", 1)[-1].strip()
     parent_name = (
         (data.get("parent") or "").rsplit(">", 1)[-1].strip()
@@ -751,9 +752,9 @@ def create_location():
         # 1. Resolve the parent location
         parent = None
         if parent_name:
+            # This will now look for "Râches > Yosh's Bedroom" in its entirety
             parent = s.query(Location).filter(Location.name.ilike(parent_name)).first()
             
-            # Add this check to prevent silent orphans!
             if not parent:
                 return abort(404, f"The parent location '{parent_name}' does not exist!")
             
@@ -788,14 +789,15 @@ def update_location(location_id):
         return abort(400, "You're not admin")
 
     data = request.json or {}
-    new_name = (data.get("name") or "").strip()
+    # FIX: Use rsplit here too if your frontend sends breadcrumbs/paths
+    new_name = (data.get("name") or "").rsplit(">", 1)[-1].strip()
 
     if not new_name:
         return abort(400, "New name cannot be empty")
 
     with SessionLocal() as s:
-        # 1. Fetch the location by ID
-        loc = s.query(Location).get(location_id)
+        # 1. Fetch the location by ID (using modern s.get)
+        loc = s.get(Location, location_id)
         if not loc:
             return abort(404, "Location not found")
 
@@ -812,8 +814,8 @@ def update_location(location_id):
         loc.name = new_name
         s.commit()
         
+        # FIX: Return INSIDE the session block to avoid DetachedInstanceError
         return {"id": loc.id, "name": loc.name}, 200
-
 
 @app.route("/api/item-group", methods=["POST"])
 @auth.login_required
