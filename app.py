@@ -4,7 +4,7 @@ import unicodedata
 from sqlalchemy import select, func
 from db import engine, SessionLocal
 from datetime import date, datetime
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from flask_httpauth import HTTPDigestAuth
 from models import (Base, Item, ItemGroup, Tag,
                     Location, Battery, tag_association,)
@@ -119,10 +119,37 @@ def search_by_name(model, q, label_fn=lambda x: x.name, limit=10):
 def location_helper_func(loc: Location) -> str:
     parts = []
     current = loc
+    seen_ids = set()
     while current:
+        current_id = getattr(current, "id", None)
+        if current_id is not None:
+            if current_id in seen_ids:
+                # Break infinite loops if bad parent cycles exist in data.
+                break
+            seen_ids.add(current_id)
         parts.append(current.name)
         current = current.parent
     return " > ".join(reversed(parts))
+
+
+def would_create_location_cycle(loc: Location, new_parent: Location | None) -> bool:
+    if not loc or not new_parent:
+        return False
+    if getattr(loc, "id", None) == getattr(new_parent, "id", None):
+        return True
+    seen_ids = set()
+    current = new_parent
+    while current:
+        current_id = getattr(current, "id", None)
+        if current_id is None:
+            return False
+        if current_id in seen_ids:
+            return True
+        if current_id == loc.id:
+            return True
+        seen_ids.add(current_id)
+        current = current.parent
+    return False
 
 
 def iso(d):
@@ -149,21 +176,33 @@ def item_to_dict(i: Item): # this dict is used by the js for editing an item. st
 def search_items_by_tag():
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
-        query = (s.query(Item).join(Item.group).join(
-            tag_association).join(Tag))
+        tags = s.query(Tag).all()
+        matching_tags = [t for t in tags if q in normalize(t.name)]
+
+        if is_autocomplete():
+            return autocomplete(matching_tags, lambda t: t.name, limit=get_autocomplete_limit())
+
+        if not matching_tags:
+            return jsonify([])
+
+        matching_tag_ids = [t.id for t in matching_tags]
+        query = (
+            s.query(Item)
+            .join(Item.group)
+            .join(ItemGroup.tags)
+            .filter(Tag.id.in_(matching_tag_ids))
+            .options(
+                joinedload(Item.group).joinedload(ItemGroup.battery),
+                joinedload(Item.group).selectinload(ItemGroup.tags),
+                joinedload(Item.location).joinedload(Location.parent),
+            )
+            .distinct()
+        )
         if not is_Yosh_allowed():
             query = query.filter(
                 ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
             )
-        query = query.all()
-        filtered = [
-            i for i in query
-            if any(q in normalize(t.name) for t in i.group.tags)
-        ]
-        if is_autocomplete():
-            tags = [
-                t for i in filtered for t in i.group.tags if q in normalize(t.name)]
-            return autocomplete(tags, lambda t: t.name, limit=get_autocomplete_limit())
+        filtered = query.all()
         return jsonify([item_to_dict(i) for i in filtered])
 
 
@@ -172,16 +211,29 @@ def search_items_by_tag():
 def search_items_by_location():
     q = normalize(request.args.get("q", "").rsplit(">", 1)[-1].strip())
     with SessionLocal() as s:
+        locations = s.query(Location).all()
+        matching_locations = [loc for loc in locations if q in normalize(location_helper_func(loc))]
+
         if is_autocomplete():
-            query = s.query(Location).all()
-            filtered = [i for i in query if q in normalize(location_helper_func(i))]
-            return autocomplete([i for i in filtered], location_helper_func, limit=get_autocomplete_limit())
-        query = s.query(Item).outerjoin(Item.location)
+            return autocomplete(matching_locations, location_helper_func, limit=get_autocomplete_limit())
+
+        if not matching_locations:
+            return jsonify([])
+
+        matching_location_ids = [loc.id for loc in matching_locations]
+        query = (
+            s.query(Item)
+            .outerjoin(Item.location)
+            .filter(Item.location_id.in_(matching_location_ids))
+            .options(
+                joinedload(Item.group).joinedload(ItemGroup.battery),
+                joinedload(Item.group).selectinload(ItemGroup.tags),
+                joinedload(Item.location).joinedload(Location.parent),
+            )
+        )
         if not is_Yosh_allowed():
             query = query.filter(~Item.group.has(ItemGroup.tags.any(Tag.name.ilike("%+18%"))))
-        query = query.all()
-        filtered = [i for i in query if q in normalize(location_helper_func(i.location))]
-        return jsonify([item_to_dict(i) for i in filtered])
+        return jsonify([item_to_dict(i) for i in query.all()])
 
 
 @app.route("/api/items/group")
@@ -190,26 +242,39 @@ def search_items_by_group():
     Yosh_allowed = is_Yosh_allowed()
     q = normalize(request.args.get("q", ""))
     with SessionLocal() as s:
-        if is_autocomplete():
-            query = s.query(ItemGroup)
-            if not Yosh_allowed:
-                query = query.filter(
-                    ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
-                )
-            query = query.all()
-            filtered = [i for i in query if q in normalize(i.name)]
-            return autocomplete(
-                [i for i in filtered],
-                lambda g: g.name,
-                limit=get_autocomplete_limit())
-        query = s.query(Item).join(Item.group)
+        query = s.query(ItemGroup)
         if not Yosh_allowed:
             query = query.filter(
                 ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
             )
-        query = query.all()
-        filtered = [i for i in query if q in normalize(i.group.name)]
-        return jsonify([item_to_dict(i) for i in filtered])
+        groups = query.all()
+        matching_groups = [g for g in groups if q in normalize(g.name)]
+
+        if is_autocomplete():
+            return autocomplete(
+                matching_groups,
+                lambda g: g.name,
+                limit=get_autocomplete_limit())
+
+        if not matching_groups:
+            return jsonify([])
+
+        matching_group_ids = [g.id for g in matching_groups]
+        items_q = (
+            s.query(Item)
+            .join(Item.group)
+            .filter(Item.group_id.in_(matching_group_ids))
+            .options(
+                joinedload(Item.group).joinedload(ItemGroup.battery),
+                joinedload(Item.group).selectinload(ItemGroup.tags),
+                joinedload(Item.location).joinedload(Location.parent),
+            )
+        )
+        if not Yosh_allowed:
+            items_q = items_q.filter(
+                ~ItemGroup.tags.any(Tag.name.ilike("%+18%"))
+            )
+        return jsonify([item_to_dict(i) for i in items_q.all()])
 
 
 def str_match(value, q):
@@ -784,6 +849,8 @@ def create_location():
         if existing:
             # 3. If it exists, update the parent_id
             new_parent_id = parent.id if parent else None
+            if parent and would_create_location_cycle(existing, parent):
+                return abort(400, "Invalid parent: this would create a location cycle")
             
             if existing.parent_id != new_parent_id:
                 existing.parent_id = new_parent_id
@@ -894,4 +961,4 @@ def create_or_update_item_group():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)

@@ -108,6 +108,11 @@ label {
   line-height: 1;
 }
 
+.topbar button.panel-active {
+  background: #7b38ff;
+  border-color: #7b38ff;
+}
+
 #limitNumber {
   width: 96px;
   min-width: 96px;
@@ -123,6 +128,42 @@ label {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 2fr minmax(260px, 1fr);
   min-height: 100vh;
+}
+
+@media (min-width: 1201px) {
+  #layout.hide-left {
+    grid-template-columns: 2fr minmax(260px, 1fr);
+  }
+
+  #layout.hide-right {
+    grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+  }
+
+  #layout.hide-filters {
+    grid-template-columns: minmax(260px, 1fr) 2fr;
+  }
+
+  #layout.hide-left.hide-right {
+    grid-template-columns: minmax(260px, 1fr);
+  }
+
+  #layout.hide-left.hide-filters {
+    grid-template-columns: 2fr;
+  }
+
+  #layout.hide-right.hide-filters {
+    grid-template-columns: minmax(260px, 1fr);
+  }
+
+  #layout.hide-left.hide-right.hide-filters {
+    grid-template-columns: 1fr;
+  }
+
+  #layout.hide-left .left,
+  #layout.hide-right .right,
+  #layout.hide-filters .filters {
+    display: none;
+  }
 }
 
 .pane {

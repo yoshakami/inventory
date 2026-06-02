@@ -7,6 +7,30 @@ let YOSH_ENABLED =
 
 let global_param = {"yosh": YOSH_ENABLED}
 
+async function parseApiResponse(resp) {
+  const contentType = resp.headers.get("content-type") || ""
+  if (contentType.includes("application/json")) {
+    try {
+      return await resp.json()
+    } catch {
+      return null
+    }
+  }
+
+  try {
+    const text = await resp.text()
+    return text ? { error: text } : null
+  } catch {
+    return null
+  }
+}
+
+function getApiErrorMessage(resp, body, fallback = "Request failed") {
+  if (body && typeof body === "object" && body.error) return body.error
+  if (typeof body === "string" && body.trim()) return body.trim()
+  return `${fallback} (${resp.status})`
+}
+
 async function deleteItem(id, cardEl) {
   const res = await fetch(`${API_BASE}/api/items?id=${id}`, {
     method: "DELETE",
@@ -14,9 +38,10 @@ async function deleteItem(id, cardEl) {
       "X-Yosh": YOSH_ENABLED,
     }
   })
+  const body = await parseApiResponse(res)
 
   if (!res.ok) {
-    notify("Failed to delete item", "error")
+    notify(getApiErrorMessage(res, body, "Failed to delete item"), "error")
     return
   }
 
@@ -173,7 +198,11 @@ async function handleAutocompleteSelect({ input, item }) {
       "X-Yosh": YOSH_ENABLED,
     }
     })
-    const data = await res.json()
+    const data = await parseApiResponse(res)
+    if (!res.ok) {
+      notify(getApiErrorMessage(res, data, "Search failed"), "error")
+      return
+    }
     renderResults(data)
   }
 }
@@ -253,7 +282,13 @@ function autoComplete({ selector, api, onSelect }) {
       "X-Yosh": YOSH_ENABLED,
     }
       })
-      render(await res.json())
+      const data = await parseApiResponse(res)
+      if (!res.ok) {
+        notify(getApiErrorMessage(res, data, "Autocomplete failed"), "error", 1500)
+        close()
+        return
+      }
+      render(Array.isArray(data) ? data : [])
     })
 
     input.addEventListener("keydown", async e => {
@@ -462,13 +497,13 @@ addLocationButton.addEventListener("click", async () => {
         parent,
       }),
     })
+    const body = await parseApiResponse(resp)
     if (!resp.ok) {
-      teeext = await resp.text()
-      console.error(teeext)
-      notify(teeext.error, "error")
+      console.error(body)
+      notify(getApiErrorMessage(resp, body, "Failed to save location"), "error")
       return
     }
-    const data = await resp.json()
+    const data = body || {}
     if (resp.status == 200) {
       console.log("Location already exists:", data, resp)
       notify("Location already exists", "info")
@@ -494,14 +529,14 @@ addLocationButton.addEventListener("click", async () => {
         parent,
       }),
     })
+    const body = await parseApiResponse(resp)
 
     if (!resp.ok) {
-      teeext = await resp.text()
-      console.error(teeext)
-      notify(teeext.error, "error")
+      console.error(body)
+      notify(getApiErrorMessage(resp, body, "Failed to rename location"), "error")
       return
     }
-    const data = await resp.json()
+    const data = body || {}
     if (resp.status == 200) {
       console.log("Location created:", data, resp)
       notify("Location Renamed", "success")
@@ -547,15 +582,15 @@ addItemButton.addEventListener("click", async () => {
     },
     body: JSON.stringify(payload),
   })
+  const body = await parseApiResponse(resp)
 
   if (!resp.ok) {
-    teeext = await resp.text()
-    console.error(teeext)
-    notify(teeext.error, "error")
+    console.error(body)
+    notify(getApiErrorMessage(resp, body, "Failed to save item"), "error")
     return
   }
 
-  const data = await resp.json()
+  const data = body || {}
   console.log("Item created:", data)
   notify("Item Created", "success")
 })
@@ -585,6 +620,7 @@ add_item_group_button = document.querySelector("#addItemGroupButton")
 const tabLeft = document.querySelector("#tab-left")
 const tabRight = document.querySelector("#tab-right")
 const layout = document.querySelector(".layout")
+const desktopLayoutQuery = window.matchMedia("(min-width: 1201px)")
 
 function setSplitView(split) {
   // Split 1: Edit only (left)
@@ -598,6 +634,27 @@ function setSplitView(split) {
   } else if (split === 3) {
     layout.classList.add("show-left", "show-right", "show-filters")
   }
+}
+
+function isDesktopLayout() {
+  return desktopLayoutQuery.matches
+}
+
+function setPanelButtonState(button, isActive) {
+  if (!button) return
+  button.classList.toggle("panel-active", !!isActive)
+}
+
+function refreshDesktopPanelButtonStates() {
+  setPanelButtonState(tabLeft, !layout.classList.contains("hide-left"))
+  setPanelButtonState(tabRight, !layout.classList.contains("hide-right"))
+  setPanelButtonState(advBtn, !layout.classList.contains("hide-filters"))
+}
+
+function toggleDesktopPanel(panelName) {
+  const className = `hide-${panelName}`
+  layout.classList.toggle(className)
+  refreshDesktopPanelButtonStates()
 }
 
 function isTypingInControl(el) {
@@ -634,23 +691,40 @@ document.addEventListener("keydown", e => {
 })
 
 advBtn.addEventListener("click", () => {
+  if (isDesktopLayout()) {
+    toggleDesktopPanel("filters")
+    return
+  }
   layout.classList.remove("show-right")
   layout.classList.remove("show-left")
   layout.classList.add("show-filters")
-});
+})
 
 
 tabLeft.addEventListener("click", () => {
+  if (isDesktopLayout()) {
+    toggleDesktopPanel("left")
+    return
+  }
   layout.classList.remove("show-right")
   layout.classList.remove("show-filters")
   layout.classList.add("show-left")
 })
 
 tabRight.addEventListener("click", () => {
+  if (isDesktopLayout()) {
+    toggleDesktopPanel("right")
+    return
+  }
   layout.classList.remove("show-filters")
   layout.classList.remove("show-left")
   layout.classList.add("show-right")
 })
+
+desktopLayoutQuery.addEventListener("change", () => {
+  refreshDesktopPanelButtonStates()
+})
+refreshDesktopPanelButtonStates()
 
 addItemGroupButton.addEventListener("click", async () => {
   const payload = {
@@ -673,15 +747,15 @@ addItemGroupButton.addEventListener("click", async () => {
      },
     body: JSON.stringify(payload),
   })
+  const body = await parseApiResponse(resp)
 
   if (!resp.ok) {
-    teeext = await resp.text()
-    console.error(teeext)
-    notify(teeext.error, "error")
+    console.error(body)
+    notify(getApiErrorMessage(resp, body, "Failed to save item group"), "error")
     return
   }
 
-  const data = await resp.json()
+  const data = body || {}
   console.log("ItemGroup created:", data)
   notify("Item Group Created", "success")
 })
@@ -786,6 +860,10 @@ document.getElementById("runAdvancedSearch").addEventListener("click", async () 
       "X-Yosh": YOSH_ENABLED,
     }
   });
-  const data = await res.json();
+  const data = await parseApiResponse(res);
+  if (!res.ok) {
+    notify(getApiErrorMessage(res, data, "Advanced search failed"), "error")
+    return
+  }
   renderResults(data);
 });
