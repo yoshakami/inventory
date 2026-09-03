@@ -59,6 +59,8 @@ GET_ENDPOINTS = [
     ("/api/items/acquired", {"q": "2025"}),
     ("/api/items/id", {"q": 1}),
     ("/api/items/group-id", {"q": 1}),
+    ("/api/furniture-maps", {}),
+    ("/api/finder", {}),
 ]
 
 AUTOCOMPLETE_ENDPOINTS = [

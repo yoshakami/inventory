@@ -1,4 +1,6 @@
 import os
+import re
+import uuid
 import json
 import unicodedata
 from sqlalchemy import select, func
@@ -7,13 +9,21 @@ from datetime import date, datetime
 from sqlalchemy.orm import joinedload, selectinload
 from flask_httpauth import HTTPDigestAuth
 from models import (Base, Item, ItemGroup, Tag,
-                    Location, Battery, tag_association,)
+                    Location, Battery, tag_association,
+                    FurnitureMap, FurnitureZone,)
+from mask_to_zones import mask_to_zones
+from PIL import Image
+from werkzeug.utils import secure_filename
 # do not import return abort!!!!!!!
 from flask import Flask, jsonify, request, render_template, send_from_directory
 app = Flask(__name__)
 auth = HTTPDigestAuth()
 #app.config['APPLICATION_ROOT'] = '/inventory' # there's another const in the js
 Base.metadata.create_all(engine)
+
+UPLOAD_DIR = os.path.join(app.root_path, "uploads", "furniture")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 users = {} 
 if os.path.exists('users.json'):
@@ -150,6 +160,133 @@ def would_create_location_cycle(loc: Location, new_parent: Location | None) -> b
         seen_ids.add(current_id)
         current = current.parent
     return False
+
+
+def location_chain_ids(loc: Location) -> list[int]:
+    ids = []
+    seen = set()
+    current = loc
+    while current:
+        current_id = getattr(current, "id", None)
+        if current_id is None or current_id in seen:
+            break
+        seen.add(current_id)
+        ids.append(current_id)
+        current = current.parent
+    return ids
+
+
+def trailing_slot(name: str) -> int | None:
+    match = re.search(r"(\d+)\s*$", name or "")
+    return int(match.group(1)) if match else None
+
+
+def resolve_location_by_path(s, raw: str) -> Location | None:
+    name = (raw or "").strip()
+    if not name:
+        return None
+    name = name.rsplit(">", 1)[-1].strip()
+    return s.query(Location).filter(Location.name.ilike(name)).one_or_none()
+
+
+def save_upload(file_storage, prefix: str) -> str | None:
+    if not file_storage or not file_storage.filename:
+        return None
+    ext = os.path.splitext(file_storage.filename)[1].lower()
+    if ext not in ALLOWED_IMAGE_EXT:
+        return None
+    safe = secure_filename(file_storage.filename) or f"image{ext}"
+    _root, ext = os.path.splitext(safe)
+    if ext.lower() not in ALLOWED_IMAGE_EXT:
+        ext = ".png"
+    name = f"{prefix}-{uuid.uuid4().hex}{ext.lower()}"
+    file_storage.save(os.path.join(UPLOAD_DIR, name))
+    return name
+
+
+def delete_upload(filename: str | None) -> None:
+    if not filename:
+        return
+    path = os.path.join(UPLOAD_DIR, filename)
+    if os.path.isfile(path):
+        os.remove(path)
+
+
+def apply_mask_to_map(s, fmap: FurnitureMap, mask_path: str) -> int:
+    result = mask_to_zones(mask_path)
+    old_by_slot = {z.slot: z.location_id for z in fmap.zones}
+    fmap.zones.clear()
+    s.flush()
+    children = s.query(Location).filter(Location.parent_id == fmap.location_id).all()
+    children_by_slot = {}
+    for child in children:
+        slot = trailing_slot(child.name)
+        if slot is not None:
+            children_by_slot.setdefault(slot, child.id)
+    for z in result["zones"]:
+        loc_id = old_by_slot.get(z["slot"]) or children_by_slot.get(z["slot"])
+        fmap.zones.append(FurnitureZone(
+            color=z["color"],
+            slot=z["slot"],
+            location_id=loc_id,
+            x=z["x"],
+            y=z["y"],
+            w=z["w"],
+            h=z["h"],
+            cx=z["cx"],
+            cy=z["cy"],
+        ))
+    return len(result["zones"])
+
+
+def furniture_map_options():
+    return (
+        joinedload(FurnitureMap.location).joinedload(Location.parent),
+        selectinload(FurnitureMap.zones).joinedload(FurnitureZone.location).joinedload(Location.parent),
+    )
+
+
+def zone_to_dict(z: FurnitureZone) -> dict:
+    return {
+        "id": z.id,
+        "color": z.color,
+        "slot": z.slot,
+        "location_id": z.location_id,
+        "location": location_helper_func(z.location) if z.location else None,
+        "x": z.x,
+        "y": z.y,
+        "w": z.w,
+        "h": z.h,
+        "cx": z.cx,
+        "cy": z.cy,
+    }
+
+
+def pick_highlight(fmap: FurnitureMap, chain_ids: list[int]) -> dict | None:
+    by_loc = {z.location_id: z for z in fmap.zones if z.location_id}
+    for loc_id in chain_ids:
+        z = by_loc.get(loc_id)
+        if z:
+            return {
+                "x": z.x, "y": z.y, "w": z.w, "h": z.h,
+                "cx": z.cx, "cy": z.cy, "slot": z.slot, "color": z.color,
+            }
+    return None
+
+
+def map_to_dict(fmap: FurnitureMap, highlight=None) -> dict:
+    return {
+        "id": fmap.id,
+        "name": fmap.name,
+        "location_id": fmap.location_id,
+        "location": location_helper_func(fmap.location) if fmap.location else None,
+        "photo_url": f"/uploads/furniture/{fmap.photo_filename}",
+        "mask_url": f"/uploads/furniture/{fmap.mask_filename}" if fmap.mask_filename else None,
+        "width": fmap.width,
+        "height": fmap.height,
+        "zones": [zone_to_dict(z) for z in sorted(fmap.zones, key=lambda z: z.slot)],
+        "highlight": highlight,
+    }
 
 
 def iso(d):
@@ -958,6 +1095,174 @@ def create_or_update_item_group():
             "updated": True,
         }, 200
 
+
+# --------------------
+# FURNITURE PHOTOS / "ICI JAMY"
+# --------------------
+
+@app.route("/uploads/furniture/<path:filename>")
+@auth.login_required
+def serve_furniture_photo(filename):
+    return send_from_directory(UPLOAD_DIR, filename)
+
+
+@app.route("/api/finder")
+@auth.login_required
+def furniture_finder():
+    location_id = request.args.get("location_id", type=int)
+    with SessionLocal() as s:
+        maps = (
+            s.query(FurnitureMap)
+            .options(*furniture_map_options())
+            .order_by(FurnitureMap.id)
+            .all()
+        )
+        chain_ids = []
+        if location_id:
+            loc = s.get(Location, location_id)
+            if loc:
+                chain_ids = location_chain_ids(loc)
+        payload = [
+            map_to_dict(m, highlight=pick_highlight(m, chain_ids) if chain_ids else None)
+            for m in maps
+        ]
+        payload.sort(key=lambda m: (m["highlight"] is None, m["id"]))
+        return jsonify({"maps": payload})
+
+
+@app.route("/api/furniture-maps", methods=["GET"])
+@auth.login_required
+def list_furniture_maps():
+    location_id = request.args.get("location_id", type=int)
+    with SessionLocal() as s:
+        q = s.query(FurnitureMap).options(*furniture_map_options())
+        if location_id:
+            q = q.filter(FurnitureMap.location_id == location_id)
+        maps = q.order_by(FurnitureMap.id).all()
+        return jsonify([map_to_dict(m) for m in maps])
+
+
+@app.route("/api/furniture-maps", methods=["POST"])
+@auth.login_required
+def create_furniture_map():
+    if not am_i_admin():
+        return abort(400, "You're not admin")
+
+    name = (request.form.get("name") or "").strip()
+    location_raw = (request.form.get("location") or "").strip()
+    location_id = request.form.get("location_id", type=int)
+    photo = request.files.get("photo")
+    mask = request.files.get("mask")
+
+    if not name:
+        return abort(400, "Furniture photo name is required")
+    if not photo or not photo.filename:
+        return abort(400, "A furniture photo is required")
+
+    with SessionLocal() as s:
+        loc = s.get(Location, location_id) if location_id else resolve_location_by_path(s, location_raw)
+        if not loc:
+            return abort(400, "Location not found — save the location first and keep its ID")
+
+        photo_name = save_upload(photo, "photo")
+        if not photo_name:
+            return abort(400, "Photo must be jpg, png, webp, or gif")
+
+        photo_path = os.path.join(UPLOAD_DIR, photo_name)
+        with Image.open(photo_path) as im:
+            width, height = im.size
+
+        fmap = FurnitureMap(
+            name=name,
+            location_id=loc.id,
+            photo_filename=photo_name,
+            width=width,
+            height=height,
+        )
+        s.add(fmap)
+        s.flush()
+
+        zone_count = 0
+        if mask and mask.filename:
+            mask_name = save_upload(mask, "mask")
+            if not mask_name:
+                delete_upload(photo_name)
+                return abort(400, "Mask must be jpg, png, webp, or gif")
+            fmap.mask_filename = mask_name
+            zone_count = apply_mask_to_map(s, fmap, os.path.join(UPLOAD_DIR, mask_name))
+
+        s.commit()
+        return {"id": fmap.id, "zones": zone_count}, 201
+
+
+@app.route("/api/furniture-maps/<int:map_id>/mask", methods=["POST"])
+@auth.login_required
+def upload_furniture_mask(map_id):
+    if not am_i_admin():
+        return abort(400, "You're not admin")
+    mask = request.files.get("mask")
+    if not mask or not mask.filename:
+        return abort(400, "A color-mask image is required")
+
+    with SessionLocal() as s:
+        fmap = s.get(FurnitureMap, map_id)
+        if not fmap:
+            return abort(404, "Furniture photo not found")
+        mask_name = save_upload(mask, "mask")
+        if not mask_name:
+            return abort(400, "Mask must be jpg, png, webp, or gif")
+        old_mask = fmap.mask_filename
+        fmap.mask_filename = mask_name
+        zone_count = apply_mask_to_map(s, fmap, os.path.join(UPLOAD_DIR, mask_name))
+        s.commit()
+        if old_mask and old_mask != mask_name:
+            delete_upload(old_mask)
+        return {"id": map_id, "zones": zone_count}, 200
+
+
+@app.route("/api/furniture-maps/<int:map_id>", methods=["DELETE"])
+@auth.login_required
+def delete_furniture_map(map_id):
+    if not am_i_admin():
+        return abort(400, "You're not admin")
+    with SessionLocal() as s:
+        fmap = s.get(FurnitureMap, map_id)
+        if not fmap:
+            return abort(404, "Furniture photo not found")
+        photo_name = fmap.photo_filename
+        mask_name = fmap.mask_filename
+        s.delete(fmap)
+        s.commit()
+    delete_upload(photo_name)
+    delete_upload(mask_name)
+    return {"deleted": True, "id": map_id}, 200
+
+
+@app.route("/api/furniture-zones/<int:zone_id>", methods=["PUT"])
+@auth.login_required
+def update_furniture_zone(zone_id):
+    if not am_i_admin():
+        return abort(400, "You're not admin")
+    data = request.json or {}
+    with SessionLocal() as s:
+        zone = s.get(FurnitureZone, zone_id)
+        if not zone:
+            return abort(404, "Zone not found")
+        location_id = data.get("location_id")
+        location_raw = data.get("location")
+        if location_raw == "" and not location_id:
+            zone.location_id = None
+            s.commit()
+            return {"id": zone.id, "location_id": None}, 200
+        if location_id:
+            loc = s.get(Location, int(location_id))
+        else:
+            loc = resolve_location_by_path(s, location_raw or "")
+        if not loc:
+            return abort(400, "Location not found")
+        zone.location_id = loc.id
+        s.commit()
+        return {"id": zone.id, "location_id": loc.id, "location": loc.name}, 200
 
 
 if __name__ == "__main__":

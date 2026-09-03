@@ -19,6 +19,7 @@
       {% endif %}
       <button id="tab-left">Edit / Add</button>
       <button id="tab-right">View</button>
+      <button id="tab-finder">Ici jamy</button>
       <button id="toggleAutocomplete">Search: ON</button>
       <button id="advancedSearchBtn">Filters</button>
       <input type="number" placeholder="Limit" id="limitNumber">
@@ -169,6 +170,20 @@
             <input id="addParent" class="location" placeholder="Optional" />
             <ul class="autocomplete-list" hidden></ul>
           </div>
+          <div>
+            <label>Furniture photo name</label>
+            <input id="furnitureMapName" placeholder="Kallax / Commode gauche / Commode droite" />
+          </div>
+          <div>
+            <label>Furniture photo</label>
+            <input id="furniturePhoto" type="file" accept="image/*" />
+          </div>
+          <div>
+            <label>Color mask (optional PNG)</label>
+            <input id="furnitureMask" type="file" accept="image/png,image/*" />
+          </div>
+          <button id="uploadFurnitureMapButton" type="button">Upload furniture photo</button>
+          <div id="furnitureMapsList" class="furniture-maps-list"></div>
           <button id="addLocationButton">Save</button>
         </div>
       </div>
@@ -210,6 +225,16 @@
       </div>
     </section>
   </main>
+  <div id="finder-modal" class="finder-modal" hidden>
+    <div class="finder-modal-panel">
+      <div class="finder-modal-header">
+        <h2 id="finder-title">Ici jamy!!!!</h2>
+        <button id="finder-close" type="button">Close</button>
+      </div>
+      <p id="finder-empty" class="muted" hidden>No furniture photos yet. Upload them in the Location card.</p>
+      <div id="finder-maps" class="finder-maps"></div>
+    </div>
+  </div>
   <script src="static/script.js"></script>
 </body>
 

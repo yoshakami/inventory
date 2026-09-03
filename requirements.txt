@@ -2,3 +2,4 @@ flask>=3.0,<4
 sqlalchemy>=2.0,<2.1
 pymysql==1.1.2
 flask_httpauth==4.8.0
+Pillow>=10,<12

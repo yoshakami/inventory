@@ -401,6 +401,7 @@ function loadLocation(item) {
   locationID.value = item.location_id || ""
   addLocationInput.value = item.location
   addParentInput.value = item.location_parent || ""
+  loadFurnitureMaps()
 }
 
 function loadItemForEdit(item) {
@@ -466,6 +467,13 @@ function renderResults(items) {
 
     card.querySelector(".edit-btn").onclick =
       () => loadItemForEdit(item)
+
+    const jamyBtn = document.createElement("button")
+    jamyBtn.type = "button"
+    jamyBtn.className = "jamy-btn"
+    jamyBtn.textContent = "ici jamy!!!!"
+    jamyBtn.onclick = () => openFinder(item.location_id, item.location)
+    card.appendChild(jamyBtn)
 
     container.appendChild(card)
   }
@@ -867,3 +875,217 @@ document.getElementById("runAdvancedSearch").addEventListener("click", async () 
   }
   renderResults(data);
 });
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[ch]))
+}
+
+const finderModal = document.getElementById("finder-modal")
+const finderMaps = document.getElementById("finder-maps")
+const finderEmpty = document.getElementById("finder-empty")
+const finderTitle = document.getElementById("finder-title")
+const tabFinder = document.getElementById("tab-finder")
+
+function closeFinder() {
+  finderModal.hidden = true
+}
+
+async function openFinder(locationId, label) {
+  finderTitle.textContent = label ? `Ici jamy!!!! — ${label}` : "Ici jamy!!!!"
+  finderModal.hidden = false
+  finderMaps.innerHTML = ""
+  finderEmpty.hidden = true
+  const url = locationId
+    ? `${API_BASE}/api/finder?location_id=${encodeURIComponent(locationId)}`
+    : `${API_BASE}/api/finder`
+  const res = await fetch(url, {
+    headers: { "X-Yosh": YOSH_ENABLED },
+  })
+  const data = await parseApiResponse(res)
+  if (!res.ok) {
+    notify(getApiErrorMessage(res, data, "Could not load furniture photos"), "error")
+    return
+  }
+  renderFinder(data?.maps || [])
+}
+
+function renderFinder(maps) {
+  finderMaps.innerHTML = ""
+  if (!maps.length) {
+    finderEmpty.hidden = false
+    return
+  }
+  finderEmpty.hidden = true
+  for (const m of maps) {
+    const pile = document.createElement("div")
+    pile.className = "finder-pile" + (m.highlight ? " has-hit" : "")
+    const hi = m.highlight
+    const placeBelow = hi && hi.y < 18
+    pile.innerHTML = `
+      <h3>${escapeHtml(m.name)}${m.location ? ` <span class="muted">· ${escapeHtml(m.location)}</span>` : ""}</h3>
+      <div class="finder-stage">
+        <img src="${API_BASE}${m.photo_url}" alt="${escapeHtml(m.name)}">
+        ${hi ? `
+          <div class="jamy-hit" style="left:${hi.x}%;top:${hi.y}%;width:${hi.w}%;height:${hi.h}%;">
+            <div class="jamy-callout ${placeBelow ? "below" : "above"}">ici jamy!!!!</div>
+          </div>` : ""}
+      </div>
+    `
+    finderMaps.appendChild(pile)
+  }
+}
+
+document.getElementById("finder-close").addEventListener("click", closeFinder)
+finderModal.addEventListener("click", e => {
+  if (e.target === finderModal) closeFinder()
+})
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !finderModal.hidden) closeFinder()
+})
+tabFinder.addEventListener("click", () => openFinder())
+
+async function loadFurnitureMaps() {
+  const list = document.getElementById("furnitureMapsList")
+  const locID = locationID.value.trim()
+  if (!list) return
+  if (!locID) {
+    list.innerHTML = "<p class='muted'>Load a location ID to attach photos to this furniture.</p>"
+    return
+  }
+  const res = await fetch(`${API_BASE}/api/furniture-maps?location_id=${encodeURIComponent(locID)}`, {
+    headers: { "X-Yosh": YOSH_ENABLED },
+  })
+  const maps = await parseApiResponse(res)
+  if (!res.ok) {
+    notify(getApiErrorMessage(res, maps, "Could not load furniture photos"), "error")
+    return
+  }
+  renderFurnitureAdmin(Array.isArray(maps) ? maps : [])
+}
+
+function renderFurnitureAdmin(maps) {
+  const list = document.getElementById("furnitureMapsList")
+  list.innerHTML = ""
+  if (!maps.length) {
+    list.innerHTML = "<p class='muted'>No photos on this location yet. Upload Kallax / drawers here.</p>"
+    return
+  }
+  for (const m of maps) {
+    const card = document.createElement("div")
+    card.className = "furniture-map-card"
+    const zonesHtml = (m.zones || []).map(z => `
+      <div class="furniture-zone-row" data-zone-id="${z.id}">
+        <span class="slot-swatch" style="background:${escapeHtml(z.color)}" title="${escapeHtml(z.color)} slot ${z.slot}"></span>
+        <input value="${escapeHtml(z.location || "")}" placeholder="Location for slot ${z.slot} (${escapeHtml(z.color)})" />
+        <button type="button" class="zone-save">Link</button>
+      </div>
+    `).join("")
+    card.innerHTML = `
+      <strong>${escapeHtml(m.name)}</strong>
+      <img src="${API_BASE}${m.photo_url}" alt="">
+      <label>Add / replace color mask</label>
+      <input type="file" class="mask-file" accept="image/png,image/*">
+      ${zonesHtml || "<p class='muted'>Upload a color mask to generate the boxes.</p>"}
+      <button type="button" class="delete-map">Delete photo</button>
+    `
+
+    card.querySelector(".delete-map").onclick = async () => {
+      const res = await fetch(`${API_BASE}/api/furniture-maps/${m.id}`, {
+        method: "DELETE",
+        headers: { "X-Yosh": YOSH_ENABLED },
+      })
+      const body = await parseApiResponse(res)
+      if (!res.ok) {
+        notify(getApiErrorMessage(res, body, "Failed to delete photo"), "error")
+        return
+      }
+      notify("Furniture photo deleted", "success")
+      loadFurnitureMaps()
+    }
+
+    const maskInput = card.querySelector(".mask-file")
+    maskInput.addEventListener("change", async () => {
+      if (!maskInput.files[0]) return
+      const fd = new FormData()
+      fd.append("mask", maskInput.files[0])
+      const res = await fetch(`${API_BASE}/api/furniture-maps/${m.id}/mask`, {
+        method: "POST",
+        headers: { "X-Yosh": YOSH_ENABLED },
+        body: fd,
+      })
+      const body = await parseApiResponse(res)
+      if (!res.ok) {
+        notify(getApiErrorMessage(res, body, "Failed to read mask"), "error")
+        return
+      }
+      notify(`Mask imported (${body?.zones ?? 0} boxes)`, "success")
+      loadFurnitureMaps()
+    })
+
+    card.querySelectorAll(".zone-save").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const row = btn.closest(".furniture-zone-row")
+        const zoneId = row.dataset.zoneId
+        const locValue = row.querySelector("input").value.trim()
+        const res = await fetch(`${API_BASE}/api/furniture-zones/${zoneId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Yosh": YOSH_ENABLED,
+          },
+          body: JSON.stringify({ location: locValue }),
+        })
+        const body = await parseApiResponse(res)
+        if (!res.ok) {
+          notify(getApiErrorMessage(res, body, "Failed to link zone"), "error")
+          return
+        }
+        notify("Zone linked", "success")
+        loadFurnitureMaps()
+      })
+    })
+
+    list.appendChild(card)
+  }
+}
+
+document.getElementById("uploadFurnitureMapButton").addEventListener("click", async () => {
+  const name = document.getElementById("furnitureMapName").value.trim()
+  const photo = document.getElementById("furniturePhoto").files[0]
+  const mask = document.getElementById("furnitureMask").files[0]
+  const locID = locationID.value.trim()
+  const locationName = addLocationInput.value.trim()
+
+  if (!name || !photo) {
+    notify("Name and furniture photo are required", "error")
+    return
+  }
+
+  const fd = new FormData()
+  fd.append("name", name)
+  fd.append("photo", photo)
+  if (mask) fd.append("mask", mask)
+  if (locID) fd.append("location_id", locID)
+  if (locationName) fd.append("location", locationName)
+
+  const res = await fetch(`${API_BASE}/api/furniture-maps`, {
+    method: "POST",
+    headers: { "X-Yosh": YOSH_ENABLED },
+    body: fd,
+  })
+  const body = await parseApiResponse(res)
+  if (!res.ok) {
+    notify(getApiErrorMessage(res, body, "Failed to upload furniture photo"), "error")
+    return
+  }
+  notify(`Furniture photo uploaded${body?.zones ? ` (${body.zones} boxes)` : ""}`, "success")
+  document.getElementById("furniturePhoto").value = ""
+  document.getElementById("furnitureMask").value = ""
+  loadFurnitureMaps()
+})

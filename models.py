@@ -88,6 +88,48 @@ class Location(Base):
     parent = relationship("Location", remote_side=[id])
 
     items = relationship("Item", back_populates="location")
+    furniture_maps = relationship("FurnitureMap", back_populates="location")
+
+
+class FurnitureMap(Base):
+    """One photo of a furniture pile (Kallax, drawer unit, ...)."""
+    __tablename__ = "furniture_map"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    location_id: Mapped[int] = mapped_column(ForeignKey("location.id"))
+    location = relationship("Location", back_populates="furniture_maps")
+    photo_filename: Mapped[str] = mapped_column(String(255))
+    mask_filename: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    width: Mapped[int] = mapped_column()
+    height: Mapped[int] = mapped_column()
+    zones = relationship(
+        "FurnitureZone",
+        back_populates="map",
+        cascade="all, delete-orphan",
+    )
+
+
+class FurnitureZone(Base):
+    """Bounding box for one painted color on a mask (#000001, #000002, ...)."""
+    __tablename__ = "furniture_zone"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("furniture_map.id"))
+    map = relationship("FurnitureMap", back_populates="zones")
+    color: Mapped[str] = mapped_column(String(7))
+    slot: Mapped[int] = mapped_column()
+    location_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("location.id"),
+        nullable=True,
+    )
+    location = relationship("Location")
+    x: Mapped[float] = mapped_column(Float)
+    y: Mapped[float] = mapped_column(Float)
+    w: Mapped[float] = mapped_column(Float)
+    h: Mapped[float] = mapped_column(Float)
+    cx: Mapped[float] = mapped_column(Float)
+    cy: Mapped[float] = mapped_column(Float)
 
 
 class Item(Base):
